@@ -1,0 +1,7 @@
+.shipstudio/
+node_modules/
+.next/
+.env*
+!.env.example
+.vercel/
+*.tsbuildinfo
