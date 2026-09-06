@@ -1,5 +1,7 @@
 # KOODOS Client Workspace
 
+Latest work, release status and remaining tasks: [session handoff](docs/SESSION-HANDOFF.md).
+
 Next.js App Router, TypeScript, Tailwind, Neon Postgres, Better Auth, and Resend.
 Vercel project: mark-thurman-s-projects/my-workspace.
 Neon: my-workspace-db, free plan, London, connected to development only.
