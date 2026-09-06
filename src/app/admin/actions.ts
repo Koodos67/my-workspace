@@ -35,15 +35,18 @@ export async function restoreFolder(clientId: string, folderId: string) {
   revalidatePath('/admin/clients/' + clientId);
   revalidatePath('/c/[slug]', 'page');
 }
-export async function reorderFolder(clientId: string, folderId: string, beforeId: string) {
+// beforeId places the folder immediately before that folder; null moves it to the end.
+export async function reorderFolder(clientId: string, folderId: string, beforeId: string | null) {
   const { profile } = await requireAdmin();
   await withActor(profile.id, async db => {
     await activeClient(db,clientId);
     const { rows } = await db.query('SELECT id FROM folders WHERE client_id=$1 AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE',[clientId]);
     const ids: string[] = rows.map(row=>row.id);
-    if (!ids.includes(folderId) || !ids.includes(beforeId) || folderId===beforeId) return;
+    if (!ids.includes(folderId)) return;
+    if (beforeId !== null && (!ids.includes(beforeId) || folderId === beforeId)) return;
     ids.splice(ids.indexOf(folderId),1);
-    ids.splice(ids.indexOf(beforeId),0,folderId);
+    if (beforeId === null) ids.push(folderId);
+    else ids.splice(ids.indexOf(beforeId),0,folderId);
     for(let i=0;i<ids.length;i++) await db.query('UPDATE folders SET position=$1 WHERE id=$2',[(i+1)*1000,ids[i]]);
   });
   revalidatePath('/admin/clients/' + clientId);

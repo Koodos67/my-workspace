@@ -1,7 +1,8 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { put } from '@vercel/blob/client';
 import { useRouter } from 'next/navigation';
+import { FileUp, FolderInput, UploadCloud } from 'lucide-react';
 import { prepareUpload, finishUpload } from '@/app/admin/content-actions';
 
 async function withDeadline<T>(work: Promise<T>, message: string, abort?: AbortController): Promise<T> {
@@ -25,8 +26,12 @@ export function UploadPanel({ clientId, folderId = '', itemId, folders = [] }: {
   const [busy,setBusy]=useState(false), [message,setMessage]=useState(''), [error,setError]=useState(false);
   const [selectedFolder,setSelectedFolder]=useState(folderId), [note,setNote]=useState('');
   const [ready,setReady]=useState(false);
+  const [dragging,setDragging]=useState(false);
   useEffect(()=>setReady(true),[]);
   const input = useRef<HTMLInputElement>(null);
+  // Drag events fire for every child element, so depth tracks enter/leave pairs instead of toggling.
+  const depth = useRef(0);
+  const inputId = useId();
   const router=useRouter();
   async function upload(files: FileList | File[]) {
     if (!ready || busy || !files.length) return;
@@ -73,14 +78,54 @@ export function UploadPanel({ clientId, folderId = '', itemId, folders = [] }: {
       setMessage(itemId?'New version saved. The item address is unchanged.':`${count} file${count===1?'':'s'} added as drafts. Preview them before publishing.`);
       router.refresh();
     } catch(error) {setError(true);setMessage((count?`${count} uploaded. `:'')+(error instanceof Error?error.message:'Upload failed. Please retry.'));router.refresh();}
-    finally {setBusy(false);if(input.current) input.current.value='';}
+    finally {setBusy(false);if(input.current) input.current.value='';depth.current=0;setDragging(false);}
   }
-  return <div className="upload-panel" onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();void upload(event.dataTransfer.files);}}>
-    {!itemId && folders.length>0 && <label>Upload into<select disabled={!ready || busy} value={selectedFolder} onChange={event=>setSelectedFolder(event.target.value)}><option value="">Workspace root</option>{folders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
-    {itemId && <label>Version note<input value={note} disabled={busy} onChange={event=>setNote(event.target.value)} maxLength={300} placeholder="What changed? (optional)" /></label>}
-    <p><strong>{itemId?'Add a new version':'Drop HTML, PDFs, images or other files here'}</strong></p>
-    <p className="muted">Up to 25 MB per file. {itemId?'Existing versions remain available.':'Files stay private. New items start as drafts.'}</p>
-    <input ref={input} type="file" aria-label={itemId?'Choose replacement file':'Choose files to upload'} disabled={!ready || busy} multiple={!itemId} onChange={event=>{if(event.target.files) void upload(event.target.files);}} />
-    {message && <p className={error?'form-error':'muted'} role={error?'alert':'status'}>{message}</p>}
+
+  const disabled = !ready || busy;
+  return <div className="upload-panel">
+    {!itemId && folders.length>0 && <label className="upload-target">
+      <span><FolderInput size={15} strokeWidth={1.75} aria-hidden="true" /> Upload into</span>
+      <select disabled={disabled} value={selectedFolder} onChange={event=>setSelectedFolder(event.target.value)}>
+        <option value="">Workspace root</option>
+        {folders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}
+      </select>
+    </label>}
+
+    {itemId && <label className="upload-target">
+      <span>Version note</span>
+      <input value={note} disabled={busy} onChange={event=>setNote(event.target.value)} maxLength={300} placeholder="What changed? (optional)" />
+    </label>}
+
+    <div
+      className={'dropzone' + (dragging ? ' is-dragging' : '') + (busy ? ' is-busy' : '')}
+      onDragEnter={event=>{if(!event.dataTransfer.types.includes('Files'))return;event.preventDefault();depth.current+=1;setDragging(true);}}
+      onDragOver={event=>{if(!event.dataTransfer.types.includes('Files'))return;event.preventDefault();event.dataTransfer.dropEffect='copy';}}
+      onDragLeave={()=>{depth.current=Math.max(0,depth.current-1);if(depth.current===0)setDragging(false);}}
+      onDrop={event=>{event.preventDefault();depth.current=0;setDragging(false);void upload(event.dataTransfer.files);}}
+    >
+      <span className="dropzone-icon" aria-hidden="true">
+        {itemId ? <FileUp size={26} strokeWidth={1.6} /> : <UploadCloud size={30} strokeWidth={1.6} />}
+      </span>
+      <p className="dropzone-title">{dragging
+        ? (itemId ? 'Release to upload the new version' : 'Release to upload')
+        : (itemId ? 'Drag a new version here' : 'Drag and drop files here')}</p>
+      <p className="dropzone-or"><span>or</span></p>
+      <label className={'button' + (disabled ? ' is-disabled' : '')} htmlFor={inputId}>
+        {itemId ? 'Choose a replacement' : 'Choose files'}
+      </label>
+      <input
+        ref={input} id={inputId} className="dropzone-input" type="file"
+        aria-label={itemId?'Choose replacement file':'Choose files to upload'}
+        disabled={disabled} multiple={!itemId}
+        onChange={event=>{if(event.target.files) void upload(event.target.files);}}
+      />
+      <p className="dropzone-hint muted">
+        {itemId
+          ? 'One file, up to 25 MB. Existing versions stay available at their own address.'
+          : 'HTML, PDFs, images and other files · up to 25 MB each · stays private and starts as a draft'}
+      </p>
+    </div>
+
+    {message && <p className={'upload-message ' + (error?'form-error':'muted')} role={error?'alert':'status'}>{message}</p>}
   </div>;
 }

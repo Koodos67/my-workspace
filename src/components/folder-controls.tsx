@@ -1,13 +1,89 @@
 'use client';
 import { useState, useTransition } from 'react';
+import { ArchiveIcon, ArrowDown, ArrowUp, Folder, GripVertical } from 'lucide-react';
 import { archiveFolder, moveFolder, renameFolder, reorderFolder } from '@/app/admin/actions';
 import { ActionForm } from './action-form';
-export function FolderControls({ clientId, folders }: { clientId: string; folders: {id:string;name:string}[] }) {
-  const [pending,start]=useTransition();
-  const [error,setError]=useState('');
-  return <div>{folders.map((folder,index)=><div className="folder-row" key={folder.id} onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();const id=event.dataTransfer.getData('text/koodos-folder');if(id)start(async()=>{try{await reorderFolder(clientId,id,folder.id);}catch{setError('Could not reorder folders. Please retry.');}});}}>
-    <button className="icon-button" type="button" draggable={!pending} onDragStart={event=>event.dataTransfer.setData('text/koodos-folder',folder.id)} aria-label={'Drag '+folder.name+' to reorder'} title="Drag to reorder">⠿</button>
-    <ActionForm action={renameFolder.bind(null,clientId,folder.id)} className="inline-form"><label className="sr-only" htmlFor={folder.id}>Folder name</label><input id={folder.id} name="name" defaultValue={folder.name} required maxLength={120}/><button className="button secondary">Save</button></ActionForm>
-    <div className="inline-form"><ActionForm action={moveFolder.bind(null,clientId,folder.id,'up')} className="inline-form"><button className="icon-button" disabled={index===0} aria-label={'Move '+folder.name+' up'}>↑</button></ActionForm><ActionForm action={moveFolder.bind(null,clientId,folder.id,'down')} className="inline-form"><button className="icon-button" disabled={index===folders.length-1} aria-label={'Move '+folder.name+' down'}>↓</button></ActionForm><ActionForm action={archiveFolder.bind(null,clientId,folder.id)} className="inline-form" confirm="Archive this folder? Its contents will be hidden from clients until you restore it."><button className="icon-button">Archive</button></ActionForm></div>
-  </div>)}{error && <p role="alert">{error}</p>}</div>;
+
+const DRAG_TYPE = 'text/koodos-folder';
+
+export function FolderControls({ clientId, folders }: { clientId: string; folders: { id: string; name: string }[] }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState('');
+  const [dragging, setDragging] = useState('');
+  const [over, setOver] = useState('');
+
+  function drop(event: React.DragEvent, beforeId: string | null) {
+    event.preventDefault();
+    setOver('');
+    setDragging('');
+    const id = event.dataTransfer.getData(DRAG_TYPE);
+    if (!id || id === beforeId) return;
+    start(async () => {
+      try {
+        await reorderFolder(clientId, id, beforeId);
+        setError('');
+      } catch {
+        setError('Could not reorder folders. Please retry.');
+      }
+    });
+  }
+
+  function allow(event: React.DragEvent, target: string) {
+    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setOver(target);
+  }
+
+  if (!folders.length) {
+    return <p className="muted folder-empty">No folders yet. Everything you upload sits in the workspace root until you add one.</p>;
+  }
+
+  return <div className="folder-list" data-dragging={dragging ? 'true' : undefined}>
+    {folders.map((folder, index) => <div
+      key={folder.id}
+      className={'folder-row' + (over === folder.id ? ' is-over' : '') + (dragging === folder.id ? ' is-dragging' : '')}
+      onDragOver={event => allow(event, folder.id)}
+      onDragLeave={() => setOver(current => current === folder.id ? '' : current)}
+      onDrop={event => drop(event, folder.id)}
+    >
+      <button
+        className="drag-handle" type="button" draggable={!pending}
+        onDragStart={event => { event.dataTransfer.setData(DRAG_TYPE, folder.id); event.dataTransfer.effectAllowed = 'move'; setDragging(folder.id); }}
+        onDragEnd={() => { setDragging(''); setOver(''); }}
+        aria-label={'Drag ' + folder.name + ' to reorder'} title="Drag to reorder"
+      ><GripVertical size={17} strokeWidth={2} aria-hidden="true" /></button>
+
+      <span className="type-icon" data-kind="folder"><Folder size={17} strokeWidth={1.75} aria-hidden="true" /></span>
+
+      <ActionForm action={renameFolder.bind(null, clientId, folder.id)} className="folder-name">
+        <label className="sr-only" htmlFor={folder.id}>Folder name</label>
+        <input id={folder.id} name="name" defaultValue={folder.name} required maxLength={120} />
+        <button className="button secondary compact">Save</button>
+      </ActionForm>
+
+      <div className="folder-actions">
+        <ActionForm action={moveFolder.bind(null, clientId, folder.id, 'up')} className="inline-form">
+          <button className="icon-button" disabled={index === 0} aria-label={'Move ' + folder.name + ' up'} title="Move up"><ArrowUp size={16} aria-hidden="true" /></button>
+        </ActionForm>
+        <ActionForm action={moveFolder.bind(null, clientId, folder.id, 'down')} className="inline-form">
+          <button className="icon-button" disabled={index === folders.length - 1} aria-label={'Move ' + folder.name + ' down'} title="Move down"><ArrowDown size={16} aria-hidden="true" /></button>
+        </ActionForm>
+        <ActionForm action={archiveFolder.bind(null, clientId, folder.id)} className="inline-form" confirm="Archive this folder? Its contents will be hidden from clients until you restore it.">
+          <button className="icon-button danger"><ArchiveIcon size={16} aria-hidden="true" /><span className="button-text">Archive</span></button>
+        </ActionForm>
+      </div>
+    </div>)}
+
+    <div
+      className={'folder-drop-end' + (over === 'end' ? ' is-over' : '')}
+      onDragOver={event => allow(event, 'end')}
+      onDragLeave={() => setOver(current => current === 'end' ? '' : current)}
+      onDrop={event => drop(event, null)}
+      aria-hidden="true"
+    >Drop here to place last</div>
+
+    {pending && <p role="status" className="muted">Reordering…</p>}
+    {error && <p role="alert" className="form-error">{error}</p>}
+  </div>;
 }
