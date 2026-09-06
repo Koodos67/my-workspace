@@ -1,6 +1,8 @@
 import { Shell } from '@/components/shell';
+import { BackLink } from '@/components/back-link';
 export default function ClientPreview() {
   return <Shell preview client name="Rooted Education" initials="HW">
+    <BackLink href="/preview">Back to all clients</BackLink>
     <div className="heading"><div><div className="eyebrow">Rooted Education × KOODOS</div><h1>Good things take root.</h1><p className="muted">Your work, ideas, and next steps. All here, whenever you need them.</p></div></div>
     <section className="welcome"><div className="eyebrow" style={{ marginBottom: 16 }}>Start here</div><h2>A space for our work together.</h2><p>Welcome, Heather. This is where we’ll share the thinking, the plans, and the progress. Everything has a place, and there’s room for your thoughts too.</p><span className="badge green">Welcome & how this works</span></section>
     <div className="section-top"><h2>▱ Proposals</h2><span className="muted">2 items</span></div>

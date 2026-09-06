@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { requireProfile } from '@/lib/auth';
 import { withActor } from '@/lib/db';
 import { Shell } from '@/components/shell';
+import { BackLink } from '@/components/back-link';
 import { ArtifactViewer } from '@/components/artifact-viewer';
 export const dynamic='force-dynamic';
 export default async function ItemPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{version?:string}>}) {
@@ -21,8 +22,9 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
   if(selected && !version)notFound();
   const nonce=(await headers()).get('x-nonce') || '';
   return <Shell signedIn client={profile.role!=='admin'} name={item.client_name} initials={(profile.full_name || profile.email).slice(0,2).toUpperCase()}>
-    <Link className="muted" href={'/c/'+item.slug}>← {item.client_name}{item.folder_name?' / '+item.folder_name:''}</Link>
-    <div className="heading"><div><h1>{item.title}</h1><p className="muted">{item.description}</p>{!item.published_at && <span className="badge">Draft — only visible to admin</span>}</div>{profile.role==='admin' && <Link className="button secondary" href={'/admin/clients/'+item.client_id}>Manage item</Link>}</div>
+    <BackLink href={profile.role==='admin' ? '/admin/clients/'+item.client_id : '/c/'+item.slug+(item.folder_id?'#folder-'+item.folder_id:'')}>{profile.role==='admin' ? 'Back to manage '+item.client_name : 'Back to '+item.client_name}</BackLink>
+    {item.folder_name && <p className="eyebrow">{item.folder_name}</p>}
+    <div className="heading"><div><h1>{item.title}</h1><p className="muted">{item.description}</p>{!item.published_at && <span className="badge">Draft — only visible to admin</span>}</div></div>
     {item.type==='link'?<a className="button" href={item.url} target="_blank" rel="noopener noreferrer">Open link ↗</a>:version?<>
       <div className="section-top"><a className="button secondary" href={`/api/items/${id}/file?version=${version.id}&download=1`}>Download original ↓</a><span className="muted">{(Number(version.size_bytes)/1024).toFixed(1)} KB · {new Date(version.created_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</span></div>
       {version.id!==item.current_version_id && <p className="notice">Viewing an earlier version. <Link href={'/items/'+id}>Return to the current version</Link>.</p>}

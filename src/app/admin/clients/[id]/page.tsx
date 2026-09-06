@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth';
 import { withActor } from '@/lib/db';
 import { Shell } from '@/components/shell';
+import { BackLink } from '@/components/back-link';
+import { PublicationControls } from '@/components/publication-controls';
 import { ActionForm } from '@/components/action-form';
 import { UploadPanel } from '@/components/upload-panel';
 import { FolderControls } from '@/components/folder-controls';
@@ -27,19 +29,19 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
   const folders=data.folders.filter(f=>!f.archived_at);
   const folderOptions=<><option value="">Workspace root</option>{folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</>;
   return <Shell signedIn name={profile.full_name || 'Admin'} initials="MT">
-    <Link href="/admin" className="muted">← All clients</Link>
+    <BackLink href="/admin">Back to all clients</BackLink>
     <div className="heading"><div><h1>{data.client.name}</h1><p className="muted">Organise the work. Bring the right people in.</p></div><Link className="button secondary" href={'/c/'+data.client.slug}>View workspace ↗</Link></div>
     <nav className="section-links" aria-label="Workspace sections"><a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a></nav>
-    <section id="content" className="form-panel"><h2>Add content</h2><UploadPanel clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
+    <section id="content" className="form-panel"><h2>Add content</h2><p className="muted">New content starts as a draft. Open the item below, choose <strong>Share with client</strong>, then <strong>Save &amp; publish</strong> when it is ready.</p><UploadPanel clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
       <details className="sub-panel"><summary>Add a link</summary><ActionForm action={createLink.bind(null,id)} success="Link added as a draft."><label>Title<input name="title" required maxLength={120}/></label><label>URL<input name="url" type="url" required maxLength={2048} placeholder="https://"/></label><label>Description<textarea name="description" maxLength={500}/></label><label>Folder<select name="folderId">{folderOptions}</select></label><button className="button">Add link draft</button></ActionForm></details>
     </section>
     <section><div className="section-top"><h2>Workspace content</h2><span className="muted">{data.items.filter(i=>!i.archived_at).length} items</span></div>
       {!data.items.some(i=>!i.archived_at) && <div className="empty">Upload your first artifact or add a link above.</div>}
       {[{id:null,name:'Workspace root'},...folders].map(folder=>{
         const items=data.items.filter(item=>!item.archived_at && item.folder_id===folder.id);
-        return items.length>0 && <section key={folder.id || 'root'}><h3>{folder.name}</h3>{items.map((item,index)=><details className="content-row" key={item.id}><summary><span>{item.title}</span><span className={'badge'+(item.published_at?' green':'')}>{item.published_at?'Published':'Draft'}</span><small className="muted">{item.type} · {item.versions} versions</small></summary><div className="item-controls">
+        return items.length>0 && <section key={folder.id || 'root'}><h3>{folder.name}</h3>{items.map((item,index)=><details className="content-row" key={item.id}><summary><span>{item.title}</span><span className={'badge'+(item.published_at?' green':'')}>{item.published_at?'Published · visible to client':'Draft · hidden from client'}</span><span className="content-edit-cue">Edit &amp; sharing <span aria-hidden="true">⌄</span></span><small className="muted">{item.type} · {item.versions} versions</small></summary><div className="item-controls">
           <Link className="button secondary" href={'/items/'+item.id}>Preview item ↗</Link>
-          <ActionForm action={editItem.bind(null,id,item.id)}><label>Title<input name="title" defaultValue={item.title} maxLength={120} required/></label><label>Folder<select name="folderId" defaultValue={item.folder_id || ''}>{folderOptions}</select></label><label className="wide">Description<textarea name="description" defaultValue={item.description || ''} maxLength={500}/></label>{item.type==='link' && <label className="wide">URL<input type="url" name="url" defaultValue={item.url} required maxLength={2048}/></label>}<label className="check-label"><input name="published" type="checkbox" defaultChecked={!!item.published_at}/> Published — visible to this client</label><button className="button">Save item</button></ActionForm>
+          <ActionForm action={editItem.bind(null,id,item.id)}><label>Title<input name="title" defaultValue={item.title} maxLength={120} required/></label><label>Folder<select name="folderId" defaultValue={item.folder_id || ''}>{folderOptions}</select></label><label className="wide">Description<textarea name="description" defaultValue={item.description || ''} maxLength={500}/></label>{item.type==='link' && <label className="wide">URL<input type="url" name="url" defaultValue={item.url} required maxLength={2048}/></label>}<PublicationControls key={String(!!item.published_at)} published={!!item.published_at}/></ActionForm>
           {item.type!=='link' && <UploadPanel clientId={id} itemId={item.id} folderId={item.folder_id || ''}/>}
           <div className="inline-form"><ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'up')}><button className="icon-button" disabled={index===0}>Move up</button></ActionForm><ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'down')}><button className="icon-button" disabled={index===items.length-1}>Move down</button></ActionForm><ActionForm className="inline-form" action={archiveItem.bind(null,id,item.id,false)} confirm="Archive this item? It will disappear from the client workspace."><button className="icon-button">Archive item</button></ActionForm></div>
         </div></details>)}</section>;
