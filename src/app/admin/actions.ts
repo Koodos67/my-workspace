@@ -6,6 +6,49 @@ import { requireAdmin } from '@/lib/auth';
 import { withActor, getPool } from '@/lib/db';
 import { getAuth } from '@/lib/auth-config';
 import { headers } from 'next/headers';
+import { activeClient, textField } from '@/lib/content';
+
+export async function updateClient(id: string, form: FormData) {
+  const { profile } = await requireAdmin();
+  const name = textField(form, 'name');
+  const color = textField(form, 'accent_color', 7, true);
+  if (color && !/^#[0-9a-f]{6}$/i.test(color)) throw new Error('Choose a valid colour.');
+  await withActor(profile.id, async db => {
+    await activeClient(db, id);
+    await db.query('UPDATE clients SET name=$1,accent_color=$2 WHERE id=$3', [name,color || null,id]);
+  });
+  revalidatePath('/admin');
+  revalidatePath('/admin/clients/' + id);
+  revalidatePath('/c/[slug]', 'page');
+}
+export async function restoreClient(id: string) {
+  const { profile } = await requireAdmin();
+  await withActor(profile.id, async db => { await db.query("UPDATE clients SET status='active' WHERE id=$1",[id]); });
+  revalidatePath('/admin');
+}
+export async function restoreFolder(clientId: string, folderId: string) {
+  const { profile } = await requireAdmin();
+  await withActor(profile.id, async db => {
+    await activeClient(db, clientId);
+    await db.query('UPDATE folders SET archived_at=NULL WHERE id=$1 AND client_id=$2',[folderId,clientId]);
+  });
+  revalidatePath('/admin/clients/' + clientId);
+  revalidatePath('/c/[slug]', 'page');
+}
+export async function reorderFolder(clientId: string, folderId: string, beforeId: string) {
+  const { profile } = await requireAdmin();
+  await withActor(profile.id, async db => {
+    await activeClient(db,clientId);
+    const { rows } = await db.query('SELECT id FROM folders WHERE client_id=$1 AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE',[clientId]);
+    const ids: string[] = rows.map(row=>row.id);
+    if (!ids.includes(folderId) || !ids.includes(beforeId) || folderId===beforeId) return;
+    ids.splice(ids.indexOf(folderId),1);
+    ids.splice(ids.indexOf(beforeId),0,folderId);
+    for(let i=0;i<ids.length;i++) await db.query('UPDATE folders SET position=$1 WHERE id=$2',[(i+1)*1000,ids[i]]);
+  });
+  revalidatePath('/admin/clients/' + clientId);
+  revalidatePath('/c/[slug]', 'page');
+}
 function field(form: FormData, key: string, max = 120) {
   const value = String(form.get(key) || '').trim();
   if (!value || value.length > max) throw new Error('Invalid ' + key);
@@ -36,6 +79,7 @@ export async function createFolder(clientId: string, form: FormData) {
   const { profile } = await requireAdmin();
   const name = field(form, 'name');
   await withActor(profile.id, async db => {
+    await activeClient(db, clientId);
     await db.query('INSERT INTO folders(client_id, name, position) SELECT $1,$2,coalesce(max(position),0)+1000 FROM folders WHERE client_id = $1', [clientId, name]);
   });
   revalidatePath('/admin/clients/' + clientId);

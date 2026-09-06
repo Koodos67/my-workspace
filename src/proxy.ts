@@ -8,8 +8,8 @@ export function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'" + (development ? ' ws: wss:' : ''),
-    "frame-src 'none'",
+    "connect-src 'self' https://vercel.com/api/blob https://vercel.com/api/blob/ https://blob.vercel-storage.com https://*.blob.vercel-storage.com" + (development ? ' ws: wss:' : ''),
+    "frame-src 'self'",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -20,7 +20,7 @@ export function proxy(request: NextRequest) {
   requestHeaders.set('Content-Security-Policy', csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);
-  response.headers.set('Referrer-Policy', 'no-referrer');
+  response.headers.set('Referrer-Policy', 'same-origin');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Cache-Control', 'private, no-store');
   return response;

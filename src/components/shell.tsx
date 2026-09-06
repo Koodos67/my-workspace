@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { BrandLogo } from './brand-logo';
 import { signOut } from '@/app/login/actions';
 export function Shell({ children, preview = false, client = false, name = 'Your workspace', initials = 'K', signedIn = false }: { children: React.ReactNode; preview?: boolean; client?: boolean; name?: string; initials?: string; signedIn?: boolean }) {
   return <>
     {preview && <div className="preview-banner">Design preview · Sample content / <Link href="/login">Go to sign in</Link></div>}
     <div className="shell">
       <aside className="sidebar">
-        <div><Link href="/" className="wordmark" aria-label="Koodos home">koodos<span>®</span></Link><p className="eyebrow" style={{ marginTop: 12 }}>Client workspace</p></div>
+        <div><Link href="/" className="wordmark" aria-label="Koodos home"><BrandLogo /></Link><p className="eyebrow" style={{ marginTop: 12 }}>Client workspace</p></div>
         <nav className="nav" aria-label="Main navigation">
           <Link className={!client ? 'active' : ''} href={preview ? '/preview' : '/workspaces'}>▦ <span>{client ? 'Workspaces' : 'Clients'}</span></Link>
           {preview && <Link className={client ? 'active' : ''} href="/preview/rooted-education">↗ <span>Client view</span></Link>}
