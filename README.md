@@ -62,4 +62,5 @@ only. Never run it against Neon. The active migrations are in database/migration
 
 Before deployment, connect a separate database environment, set the auth URL to the
 chosen hosted domain, and provision private Blob when building artifact delivery.
-No production deployment has been created by this scaffold.
+Production is configured at https://my-workspace-beta-jet.vercel.app with a separate free Neon database (my-workspace-prod-db, London). Production credentials live in Vercel environment variables; local development continues to use my-workspace-db. GitHub main is connected to the Vercel production project.
+

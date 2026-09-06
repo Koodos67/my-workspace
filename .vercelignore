@@ -1,0 +1,7 @@
+.git/
+.agents/
+.shipstudio/
+node_modules/
+.next/
+.env*
+*.tsbuildinfo
