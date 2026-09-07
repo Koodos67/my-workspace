@@ -13,8 +13,9 @@ in here and deleted.
 - URL artifact import shipped through PR #3 and was removed again the same day — see below.
 - PR #4 fixed the artifact font CSP; PR #5 moved artifacts onto their own served policy,
   merged as `4d9c9f7`; PR #6 refused viewer-page imports, merged as `b3358b0`.
-- Latest production deployment `my-workspace-cycvvbky7` is Ready and aliased to the
-  production portal.
+- PR #7 removed URL artifact import, merged as `21308c8`.
+- Production deployments follow every merge to `main` automatically; check Vercel for the
+  current one rather than trusting a deployment id recorded here.
 - The user tests through production because their magic links return there, and because
   the ShipStudio preview cannot hold an authenticated session. Ship to production for review.
 
@@ -24,8 +25,120 @@ The admin client layout (PR #2) and the artifact policy change (PR #5) are both 
 not been reviewed in production. The user has confirmed archiving the broken imported artifacts.
 Ask for feedback on the layout before building further on it.
 
-The removal of URL import is committed on the local branch `chore/remove-url-import` and is
-**deliberately unpushed** at the user's request. Confirm before pushing or merging it.
+URL import was removed in PR #7, merged as `21308c8`.
+
+## Next feature — work tracks and an admin board (agreed 7 September, not built)
+
+Agreed with the user, ready to build. **Nothing has been implemented.** One input is still
+outstanding: the real `DEFAULT_TRACKS` names (see the end of this section).
+
+### What this is, and what it is not
+
+The user asked for "simplified project reporting that merely surfaces updates to clients". That
+is **reporting, not task management**, and it is a different grain from the task system already
+designed in PRD §11:
+
+- **Tracks (this build)** are delivery *phases* — a handful per client, standard across clients.
+- **Tasks (PRD §11, still future)** are individual work items with a request/accept/review
+  lifecycle, due dates and assignees.
+
+They can coexist later — tasks live inside tracks. Do not merge the two. In particular do not
+reuse §11's `requested`/`accepted`/`review` statuses here: those describe a task's life, not a
+phase the studio defined itself. PRD §11 should be amended during this build to separate the
+two so the PRD stays coherent.
+
+### Decisions taken (with reasons, so they are not silently reversed)
+
+- **Tracks are a layer above folders, not folders with a status.** Tracks are the studio's
+  standard stages and are consistent across clients; folder names are per-client content
+  categories. Keeping reporting separate from filing is the point.
+- **The board is admin-only; clients get a list.** A five-card board is mostly chrome and reads
+  badly on a phone, which is where clients open this. The cross-client board is where a kanban
+  actually pays off — as PRD §11 already anticipated.
+- **Rejected: stages as columns with deliverables moving through them.** It looks cheap because
+  items already sit in folders, but the folders are categories, not a pipeline — "Proposals" is
+  not a stage that "SEO Research" follows. It would misrepresent the work.
+- **Counts and dates are derived, never typed.** The only manual upkeep is a status and a
+  one-line note. Manual status boards rot, and a board that lies to clients is worse than none.
+
+### Schema — `database/migrations/004_tracks.sql`
+
+```
+tracks   id · client_id · name · position
+         · status ('not_started'|'in_progress'|'waiting_on_client'|'on_hold'|'done')
+         · status_note · status_changed_at · archived_at · created_at
+         unique (id, client_id)
+
+folders  + track_id uuid, nullable
+         FK (track_id, client_id) references tracks(id, client_id)
+```
+
+- The composite FK is the pattern `items` already uses against `folders`: it makes cross-client
+  mixing impossible in the database rather than by convention. Use it.
+- `track_id` nullable, so a folder outside a reported stage simply does not appear in reporting.
+- RLS mirrors `folders` exactly — read `is_admin() OR (can_access_client(client_id) AND
+  archived_at IS NULL)`, insert/update `is_admin()`. No new policy patterns.
+- A trigger sets `status_changed_at` on status change, like the existing `touch_item`, so "last
+  changed" cannot drift because app code forgot.
+- Deliberately **not** writing status changes to `events` in v1: it would need a new insert grant
+  on that table for a history nobody has asked for yet. Easy to add later.
+
+### Status labels differ by audience
+
+Same enum, different words. `waiting_on_client` reads **"Waiting on you"** to the client and
+**"Waiting on client"** on the admin board — "waiting on you" on the studio's own board would be
+actively confusing.
+
+### Surfaces
+
+| Where | What |
+|---|---|
+| `createClient` action | Seeds the standard tracks on client creation, editable per client after |
+| `/admin/clients/[id]` | Track section: create, rename, reorder, archive, set status and note. A track picker on each folder row, reusing the existing folder row layout |
+| `/admin/board` | Kanban across all clients. Columns are statuses, cards are tracks with the client name, drag to change status reusing the `FolderControls` pattern |
+| `/c/[slug]` | A compact "Where things stand" panel above the existing content listing: track, status chip, dated note, and derived "N deliverables · last updated 4 Sept" |
+
+### Board filtering
+
+Client **chips, not a select**: `All (12) · Rooted Education (4) · Client B (5)`, with counts so
+the work's location is visible before clicking. Driven by a URL parameter,
+`/admin/board?client=<slug>`, which keeps the board a server component with no filter state,
+makes a filtered view bookmarkable during a call, and needs no JavaScript — the chips are plain
+links, matching how `/workspaces?all=1` already works. Drag-to-change-status stays the only
+interactive piece. When filtered to one client the per-card client name drops to a muted line.
+
+**This stops scaling past roughly 8–10 clients**, where the chips wrap into an unreadable block
+and it wants a search or select instead. Recorded so that is a deliberate revisit rather than a
+slow degradation.
+
+### Judgement call to revisit on sight
+
+The client content listing stays **flat** — status panel on top, then the existing folder listing
+with a small track chip per folder. Nesting track → folder → items is three levels on a phone.
+The user may overrule once it is visible.
+
+### Explicitly out of scope
+
+Tasks, client-raised requests, due dates, assignees, track comments, notifications.
+
+### Parked, offered but not decided
+
+A **"Needs attention"** chip beside the client chips, filtering to tracks that are
+`waiting_on_client` or unchanged for 14+ days — the same query shape, and the view worth opening
+on a Monday. The user has not said whether it is in the first cut.
+
+### Risk
+
+Staleness is the one that kills this feature. Mitigation: the admin board shows "unchanged for
+N days" on each card, so a rotting track is visible to the studio before it is visible to a client.
+
+### Estimate and the outstanding input
+
+About two days: the migration and seeding are small, the board and track management are the bulk.
+
+**Blocked on one answer before building:** the real stage names for `DEFAULT_TRACKS`.
+Discovery / Strategy / Delivery / Support were the assistant's placeholders, not the user's.
+Build it as an editable constant regardless.
 
 ## Completed 6 September — session two (admin client layout)
 
@@ -293,6 +406,13 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-Start with the user's production feedback on the admin client layout (PR #2), then on
-publishing and navigation. The latest release is already live; no outstanding deployment
-approval is needed. Keep this file current as work progresses.
+1. Get the `DEFAULT_TRACKS` names from the user — the work tracks build is blocked on that one
+   answer, and on whether the "Needs attention" chip is in the first cut.
+2. Build work tracks and the admin board to the agreed plan above. Read that section in full
+   before starting: several decisions there were taken against cheaper-looking alternatives, and
+   the reasons are recorded so they are not silently reversed.
+3. Also collect the user's production feedback on the admin client layout (PR #2) and the
+   artifact policy change (PR #5), neither of which has been reviewed yet.
+
+Everything merged is already live; no deployment approval is outstanding. Keep this file current
+as work progresses.
