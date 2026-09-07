@@ -1,5 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
+
+// Artifact documents send their own Content-Security-Policy so untrusted content is governed
+// separately from the portal. This proxy overwrites the CSP on everything it touches, so those
+// routes must pass through untouched — otherwise frame-ancestors 'none' from the portal policy
+// lands on the artifact and the item page cannot frame it at all.
+const SELF_POLICED = [/^\/api\/import-preview$/, /^\/api\/items\/[^/]+\/render$/];
+
 export function proxy(request: NextRequest) {
+  if (SELF_POLICED.some(route => route.test(request.nextUrl.pathname))) return NextResponse.next();
   const nonce = btoa(crypto.randomUUID());
   const development = process.env.NODE_ENV === 'development';
   const csp = [
@@ -7,9 +15,7 @@ export function proxy(request: NextRequest) {
     "script-src 'self' 'nonce-" + nonce + "'" + (development ? " 'unsafe-eval'" : ''),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
-    // A srcdoc artifact inherits this policy, so data: must be allowed here for the
-    // sandbox's own font-src data: to mean anything. Without it no artifact font loads.
-    "font-src 'self' data:",
+    "font-src 'self'",
     "connect-src 'self' https://vercel.com/api/blob https://vercel.com/api/blob/ https://blob.vercel-storage.com https://*.blob.vercel-storage.com" + (development ? ' ws: wss:' : ''),
     "frame-src 'self'",
     "frame-ancestors 'none'",
