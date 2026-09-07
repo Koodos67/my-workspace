@@ -32,7 +32,7 @@ test.afterAll(async()=>{
     if(paths.length)await del(paths,{token:local.BLOB_READ_WRITE_TOKEN});
     await pool.query('UPDATE items SET current_version_id=NULL WHERE client_id=$1',[clientId]);
     await pool.query('DELETE FROM item_versions WHERE item_id IN (SELECT id FROM items WHERE client_id=$1)',[clientId]);
-    for(const table of ['events','memberships','items','folders'])await pool.query(`DELETE FROM ${table} WHERE client_id=$1`,[clientId]);
+    for(const table of ['events','memberships','items','folders','tracks'])await pool.query(`DELETE FROM ${table} WHERE client_id=$1`,[clientId]);
     await pool.query('DELETE FROM clients WHERE id=$1',[clientId]);
   }
   await pool.query('DELETE FROM events WHERE actor_id=ANY($1::text[])',[users]);

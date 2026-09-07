@@ -7,6 +7,7 @@ import { withActor, getPool } from '@/lib/db';
 import { getAuth } from '@/lib/auth-config';
 import { headers } from 'next/headers';
 import { activeClient, textField } from '@/lib/content';
+import { seedTracks } from '@/lib/track-data';
 
 export async function updateClient(id: string, form: FormData) {
   const { profile } = await requireAdmin();
@@ -64,7 +65,11 @@ export async function createClient(form: FormData) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 80) redirect('/admin?error=slug');
   let id: string;
   try {
-    id = await withActor(profile.id, async db => (await db.query('INSERT INTO clients(name, slug) VALUES ($1,$2) RETURNING id', [name, slug])).rows[0].id);
+    id = await withActor(profile.id, async db => {
+      const clientId = (await db.query('INSERT INTO clients(name, slug) VALUES ($1,$2) RETURNING id', [name, slug])).rows[0].id;
+      await seedTracks(db, clientId);
+      return clientId;
+    });
   } catch (error) {
     if ((error as { code?: string }).code === '23505') redirect('/admin?error=duplicate');
     throw error;
@@ -89,8 +94,15 @@ export async function createFolder(clientId: string, form: FormData) {
 }
 export async function renameFolder(clientId: string, folderId: string, form: FormData) {
   const { profile } = await requireAdmin();
-  await withActor(profile.id, async db => { await db.query('UPDATE folders SET name = $1 WHERE id = $2 AND client_id = $3', [field(form, 'name'), folderId, clientId]); });
+  await withActor(profile.id, async db => {
+    await activeClient(db, clientId);
+    const trackId = textField(form, 'track_id', 36, true) || null;
+    if (trackId && !(await db.query('SELECT id FROM tracks WHERE id=$1 AND client_id=$2 AND archived_at IS NULL', [trackId, clientId])).rowCount) throw new Error('Track unavailable.');
+    await db.query('UPDATE folders SET name=$1,track_id=$2 WHERE id=$3 AND client_id=$4', [field(form, 'name'), trackId, folderId, clientId]);
+  });
   revalidatePath('/admin/clients/' + clientId);
+  revalidatePath('/admin/board');
+  revalidatePath('/c/[slug]', 'page');
 }
 export async function archiveFolder(clientId: string, folderId: string) {
   const { profile } = await requireAdmin();

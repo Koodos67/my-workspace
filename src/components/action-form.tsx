@@ -10,5 +10,5 @@ export function ActionForm({ action, children, className = 'form-grid', success 
     const form = new FormData(event.currentTarget);
     setMessage('');
     startTransition(async()=>{try {await action(form);setError(false);setMessage(success);} catch {setError(true);setMessage('Could not save. Check the fields and try again.');}});
-  }}><fieldset disabled={pending} className="form-fields">{children}</fieldset>{pending && <p role="status">Saving…</p>}{message && <p className={error?'form-error':'muted'} role={error?'alert':'status'}>{message}</p>}</form>;
+  }}><fieldset disabled={pending} className="form-fields">{children}</fieldset>{pending && <p role="status">Saving…</p>}{!pending && message && <p className={error?'form-error':'muted'} role={error?'alert':'status'}>{message}</p>}</form>;
 }

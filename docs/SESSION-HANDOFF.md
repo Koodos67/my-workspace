@@ -19,197 +19,91 @@ in here and deleted.
 - The user tests through production because their magic links return there, and because
   the ShipStudio preview cannot hold an authenticated session. Ship to production for review.
 
-## Awaiting user review
+## User review — approved 7 September
 
-The admin client layout (PR #2) and the artifact policy change (PR #5) are both live but have
-not been reviewed in production. The user has confirmed archiving the broken imported artifacts.
-Ask for feedback on the layout before building further on it.
+The user approved the admin layout and confirmed fully encapsulated HTML renders perfectly.
+They explicitly authorised building the agreed work tracks and client view using the current
+design language, and progressing the release to main for production magic-link testing.
+Keep updates brief. No further approval is needed for this release.
 
-URL import was removed in PR #7, merged as `21308c8`.
+## Work tracks and admin board — implemented 7 September
 
-## Next feature — work tracks and an admin board (agreed 7 September, not built)
+The agreed reporting feature is built. This is delivery reporting, not task management.
+PRD section 11 now separates the implemented tracks from future individual tasks.
 
-Agreed with the user, ready to build. **Nothing has been implemented.** One input is still
-outstanding: the real `DEFAULT_TRACKS` names (see the end of this section).
+### Agreed decisions preserved
 
-### What this is, and what it is not
+- Tracks sit above folders. Stages are standard across clients; folders are filing categories.
+  Turning folders into pipeline columns would misrepresent the work.
+- Six ordered stages form the client progress spine: Discovery → Research → Plan → Build →
+  Review → Launch. Each expands to its description, expected deliverable, note and shared items.
+- Operate is an ongoing service, with an explicit editable recurring flag. It appears below the
+  client spine and in an Ongoing strip below the admin board, never as a final pipeline column.
+- Client filing stays flat, with a track chip on each assigned folder and links from stage to
+  folder. Three levels of track → folder → item would be too much on a phone.
+- Admin columns are statuses. The default shows In progress, Waiting on client, and On hold.
+  Show all stages reveals Not started and Done. Every card supports a status select as well as
+  drag, so keyboard/mobile users and transitions into hidden columns remain supported.
+- Client filters are URL-driven chips with counts; show-all and client filters compose and
+  are bookmarkable. Revisit chips beyond roughly 8–10 clients.
+- The client label is “Waiting on you”; the admin label is “Waiting on client”.
+- Counts and dates are derived from published, unarchived items in active linked folders.
+  Admin previews use the same publication filters. Drafts never inflate client counts.
+- Status and short client updates are immediately visible when saved. Content still starts
+  as a draft and requires explicit publishing.
+- No tasks, requests, deadlines, assignees, comments, notifications, or Needs attention chip.
+  Status history is not written to events in v1.
 
-The user asked for "simplified project reporting that merely surfaces updates to clients". That
-is **reporting, not task management**, and it is a different grain from the task system already
-designed in PRD §11:
+### Schema and implementation
 
-- **Tracks (this build)** are delivery *phases* — a handful per client, standard across clients.
-- **Tasks (PRD §11, still future)** are individual work items with a request/accept/review
-  lifecycle, due dates and assignees.
+- Migration 004 adds tracks with composite (id, client_id) uniqueness, matching folder RLS,
+  and nullable folders.track_id with a composite FK. No existing content is moved or changed.
+- The migration seeds seven tracks for every existing client. New clients receive the same
+  defaults atomically in createClient. Initial status is Not started; real progress is not guessed.
+- DEFAULT_TRACKS in src/lib/tracks.ts holds editable application defaults. The migration
+  contains an immutable copy for backfilling existing clients.
+- A database trigger maintains status_changed_at only when status changes. An additional
+  note_updated_at dates note edits independently, avoiding misleading old dates on new notes.
+- Admin client management supports create, edit, reorder with arrows, archive and restore,
+  plus optional track assignment on the existing folder row. Track archiving hides reporting,
+  leaving folders/content available. Restoring a track restores its existing assignments.
+- The client view handles not-started, active, fully-completed and recurring-only workspaces.
+- The board displays status age, uses the existing drag-handle style, waits for hydration
+  before enabling controls, and resets horizontal scrolling when switching live/all stages.
 
-They can coexist later — tasks live inside tracks. Do not merge the two. In particular do not
-reuse §11's `requested`/`accepted`/`review` statuses here: those describe a task's life, not a
-phase the studio defined itself. PRD §11 should be amended during this build to separate the
-two so the PRD stays coherent.
+### Standard process and expected output
 
-### Decisions taken (with reasons, so they are not silently reversed)
+| Stage | What happens | Deliverable |
+|---|---|---|
+| Discovery | A working session on the business, the buyers and the constraints | Written brief |
+| Research | Market, competitor and search analysis; content gap and citation audit | Research pack |
+| Plan | Sitemap, content model, design direction, stack recommendation | Plan for approval |
+| Build | Design and development against the approved plan | Staging site |
+| Review | One structured round of changes, tracked in writing | Change log |
+| Launch | Migration, redirects, analytics, handover documentation | Live site and keys |
+| Operate | Monitoring, fixes, measurement — and content, if you want it | Quarterly report |
 
-- **Tracks are a layer above folders, not folders with a status.** Tracks are the studio's
-  standard stages and are consistent across clients; folder names are per-client content
-  categories. Keeping reporting separate from filing is the point.
-- **The board is admin-only; clients get a list.** A five-card board is mostly chrome and reads
-  badly on a phone, which is where clients open this. The cross-client board is where a kanban
-  actually pays off — as PRD §11 already anticipated.
-- **Rejected: stages as columns with deliverables moving through them.** It looks cheap because
-  items already sit in folders, but the folders are categories, not a pipeline — "Proposals" is
-  not a stage that "SEO Research" follows. It would misrepresent the work.
-- **Counts and dates are derived, never typed.** The only manual upkeep is a status and a
-  one-line note. Manual status boards rot, and a board that lies to clients is worse than none.
+### Verification and release
 
-### Schema — `database/migrations/004_tracks.sql`
-
-```
-tracks   id · client_id · name · summary · deliverable · position · recurring
-         · status ('not_started'|'in_progress'|'waiting_on_client'|'on_hold'|'done')
-         · status_note · status_changed_at · archived_at · created_at
-         unique (id, client_id)
-
-folders  + track_id uuid, nullable
-         FK (track_id, client_id) references tracks(id, client_id)
-```
-
-- The composite FK is the pattern `items` already uses against `folders`: it makes cross-client
-  mixing impossible in the database rather than by convention. Use it.
-- `track_id` nullable, so a folder outside a reported stage simply does not appear in reporting.
-- RLS mirrors `folders` exactly — read `is_admin() OR (can_access_client(client_id) AND
-  archived_at IS NULL)`, insert/update `is_admin()`. No new policy patterns.
-- A trigger sets `status_changed_at` on status change, like the existing `touch_item`, so "last
-  changed" cannot drift because app code forgot.
-- Deliberately **not** writing status changes to `events` in v1: it would need a new insert grant
-  on that table for a history nobody has asked for yet. Easy to add later.
-
-### Status labels differ by audience
-
-Same enum, different words. `waiting_on_client` reads **"Waiting on you"** to the client and
-**"Waiting on client"** on the admin board — "waiting on you" on the studio's own board would be
-actively confusing.
-
-### Surfaces
-
-| Where | What |
-|---|---|
-| `createClient` action | Seeds the standard tracks on client creation, editable per client after |
-| `/admin/clients/[id]` | Track section: create, rename, reorder, archive, set status and note. A track picker on each folder row, reusing the existing folder row layout |
-| `/admin/board` | Kanban across all clients. Columns are statuses, cards are tracks with the client name, drag to change status reusing the `FolderControls` pattern |
-| `/c/[slug]` | A compact "Where things stand" panel above the existing content listing: track, status chip, dated note, and derived "N deliverables · last updated 4 Sept" |
-
-### Board filtering
-
-Client **chips, not a select**: `All (12) · Rooted Education (4) · Client B (5)`, with counts so
-the work's location is visible before clicking. Driven by a URL parameter,
-`/admin/board?client=<slug>`, which keeps the board a server component with no filter state,
-makes a filtered view bookmarkable during a call, and needs no JavaScript — the chips are plain
-links, matching how `/workspaces?all=1` already works. Drag-to-change-status stays the only
-interactive piece. When filtered to one client the per-card client name drops to a muted line.
-
-**This stops scaling past roughly 8–10 clients**, where the chips wrap into an unreadable block
-and it wants a search or select instead. Recorded so that is a deliberate revisit rather than a
-slow degradation.
-
-### Judgement call to revisit on sight
-
-The client content listing stays **flat** — status panel on top, then the existing folder listing
-with a small track chip per folder. Nesting track → folder → items is three levels on a phone.
-The user may overrule once it is visible.
-
-### Explicitly out of scope
-
-Tasks, client-raised requests, due dates, assignees, track comments, notifications.
-
-### Parked, offered but not decided
-
-A **"Needs attention"** chip beside the client chips, filtering to tracks that are
-`waiting_on_client` or unchanged for 14+ days — the same query shape, and the view worth opening
-on a Monday. The user has not said whether it is in the first cut.
-
-### Risk
-
-Staleness is the one that kills this feature. Mitigation: the admin board shows "unchanged for
-N days" on each card, so a rotting track is visible to the studio before it is visible to a client.
-
-### Estimate and the outstanding input
-
-About two days: the migration and seeding are small, the board and track management are the bulk.
-
-### The real process — `DEFAULT_TRACKS` (supplied 7 September)
-
-Seven stages, in order. Each has a description and, importantly, a named deliverable.
-
-| # | Stage | What happens | What you get |
-|---|---|---|---|
-| 1 | Discovery | A working session on the business, the buyers and the constraints | Written brief |
-| 2 | Research | Market, competitor and search analysis; content gap and citation audit | Research pack |
-| 3 | Plan | Sitemap, content model, design direction, stack recommendation | Plan for approval |
-| 4 | Build | Design and development against the approved plan | Staging site |
-| 5 | Review | One structured round of changes, tracked in writing | Change log |
-| 6 | Launch | Migration, redirects, analytics, handover documentation | Live site and keys |
-| 7 | Operate | Monitoring, fixes, measurement — and content, if you want it | Quarterly report |
-
-Seed as an editable constant, e.g. `{ name, summary, deliverable }` per entry, positioned 1000
-apart in this order.
-
-### Two schema additions this justifies
-
-Add `summary text` and `deliverable text` to `tracks`, seeded from the table above.
-
-The deliverable column is the highest-value part. A client's actual question is not "what status
-is Research" but **"where is my research pack"**. A track that names its expected output turns a
-status chip into an answer: *"Research — In progress — you'll get: Research pack · 3 items · last
-updated 4 Sept"*. Both fields are per-client editable after seeding.
-
-### The process is linear, which changes the client view
-
-Discovery → Research → Plan → Build → Review → Launch → Operate is a genuine sequence, unlike
-folders. That has three consequences:
-
-- It confirms tracks, not folders-with-a-status, were the right model — folders are categories,
-  this is a pipeline.
-- Order is meaningful and must not be sorted by anything but `position`.
-- **The client view should be a progress spine, not seven status chips.** "Stage 4 of 7 · Build"
-  with the completed stages behind it and the rest ahead answers "where are we" in one glance,
-  which seven chips do not. This supersedes the "compact status panel" described above — build
-  the spine, with each stage expandable to its note and deliverable.
-
-Stages 3 and 5 ("Plan for approval", "Review") are the natural homes for `waiting_on_client`,
-which validates keeping that status.
-
-### Both edge cases decided (7 September)
-
-**Operate is presented separately, not as the end of the spine.** It is an ongoing service with a
-recurring quarterly report, so showing it as stage 7 of a sequence implies it is the last thing
-that happens rather than the thing that continues.
-
-- Add `recurring boolean not null default false` to `tracks`, seeded true for Operate. An
-  explicit column, not a match on name or position — those are fragile and the user can rename.
-- **Client view:** the progress spine covers stages 1–6. Operate renders below it as its own
-  panel — an ongoing service with its status, note and deliverable, not a step to be completed.
-- **Admin board:** recurring tracks are excluded from the kanban entirely and appear in a compact
-  "Ongoing" strip beneath it, one row per client with status and last-changed. This mirrors the
-  client view, and avoids the subtler alternative of special-casing a recurring track's status
-  inside the columns.
-
-**The board hides `not_started` and `done` by default.** Default columns are therefore
-`in_progress`, `waiting_on_client`, `on_hold` — live work only. A "Show all stages" chip reveals
-the rest, as a URL parameter (`/admin/board?show=all`) for the same reasons the client filter is.
-
-**The consequence that matters: hiding `done` would break dragging a card to done**, which is the
-most common action on the board. So each card carries a **status control as well as drag**. That
-is needed regardless — drag alone is not keyboard accessible, and it is the same reason
-`FolderControls` kept arrow buttons alongside its drag handle. With a control on the card, hidden
-columns cost nothing. Slim always-visible drop zones at either edge are optional polish, not
-required.
-
-### "Needs attention" chip — now parked as probably redundant
-
-Hiding `not_started` and `done` makes the default board *already* a live-work view, which was
-most of what that chip was for. What it would still add is narrowing to `waiting_on_client` plus
-tracks unchanged for 14+ days. Do not build it in the first cut; revisit only if the default view
-proves too noisy in real use.
+- TypeScript and production build pass; track RLS checks pass, including cross-client FK,
+  client write denial, archive/revocation and independent status/note timestamp behavior.
+- The tracks browser test covers seeding, note/status updates, folder assignment, safe counts,
+  member isolation, board filtering, select-to-Done with hidden columns, real drag, rename,
+  reorder, archive/restore, recurring tracks and desktop/mobile layouts.
+- Reviewed desktop and 390px mobile screenshots. The existing content-delivery regression
+  suite passes, including private uploads, sandboxed artifacts, publishing and revocation.
+  The final tracks run also verifies the fully-completed delivery state.
+- Fixed the existing RLS runner's environment loading: loadEnvConfig requires the explicit
+  development argument. It now also refuses a production host. The initial old-runner check
+  failed on the absent tracks table in production and rolled its entire transaction back.
+- Neon CLI has no authenticated account in this session. Development migration/testing uses
+  the existing separate development database; direct connections are used for migrations.
+- Migration 004 was rehearsed against existing production data in a transaction that was
+  fully rolled back: 14 tracks for two clients. This verifies backfilling without a Neon API
+  login. It was not a Neon branch rehearsal. The additive migration is applied before the
+  code reaches production. Its LF line endings are pinned for consistent migration checksums.
+- Migration 004 is now applied in production: 14 default tracks across two existing clients.
+  Both browser suites, RLS checks, TypeScript and the final production build pass.
 
 ## Completed 6 September — session two (admin client layout)
 
@@ -477,15 +371,8 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Build work tracks and the admin board to the agreed plan above. Read that section in full
-   before starting: several decisions there were taken against cheaper-looking alternatives, and
-   the reasons are recorded so they are not silently reversed. The real seven-stage process and
-   its deliverables are recorded there too.
-2. Also collect the user's production feedback on the admin client layout (PR #2) and the
-   artifact policy change (PR #5), neither of which has been reviewed yet.
+1. Collect production feedback on the work tracks, client progress spine and admin board.
+2. The older admin layout and HTML rendering are approved; do not ask for that approval again.
+3. Follow the remaining-work list above for future scope. Individual tasks remain future work.
 
-The plan carries no open questions. Every decision needed to start is recorded, including the
-seven stages and their deliverables.
-
-Everything merged is already live; no deployment approval is outstanding. Keep this file current
-as work progresses.
+The agreed reporting plan has no open design questions. Keep this file current as work progresses.

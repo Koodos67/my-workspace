@@ -12,6 +12,8 @@ import { PublicationControls } from '@/components/publication-controls';
 import { ActionForm } from '@/components/action-form';
 import { UploadPanel } from '@/components/upload-panel';
 import { FolderControls } from '@/components/folder-controls';
+import { TrackManager } from '@/components/track-manager';
+import { readTracks } from '@/lib/track-data';
 import { ItemIcon, itemTypeLabel } from '@/components/item-icon';
 import { archiveClient, createFolder, inviteMember, revokeMember, updateClient, restoreFolder } from '../../actions';
 import { createLink, editItem, archiveItem, moveItem } from '../../content-actions';
@@ -29,14 +31,15 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
   const data = await withActor(profile.id, async db => {
     const client = (await db.query("SELECT * FROM clients WHERE id=$1 AND status='active'",[id])).rows[0];
     if (!client) return null;
-    const folders = (await db.query('SELECT id,name,archived_at FROM folders WHERE client_id=$1 ORDER BY position,created_at,id',[id])).rows;
+    const folders = (await db.query('SELECT id,name,archived_at,track_id FROM folders WHERE client_id=$1 ORDER BY position,created_at,id',[id])).rows;
+    const tracks = await readTracks(db, id, true);
     const members = (await db.query('SELECT p.id,p.full_name,p.email,p.last_seen_at,m.invited_at,m.first_seen_at FROM memberships m JOIN profiles p ON p.id=m.profile_id WHERE m.client_id=$1 ORDER BY m.invited_at',[id])).rows;
     const items = (await db.query(
       `SELECT i.*,
         (SELECT count(*) FROM item_versions v WHERE v.item_id=i.id) AS versions,
         (SELECT v.mime_type FROM item_versions v WHERE v.id=i.current_version_id) AS mime
        FROM items i WHERE client_id=$1 ORDER BY position,created_at,id`,[id])).rows;
-    return {client,folders,members,items};
+    return {client,folders,members,items,tracks};
   });
   if (!data) notFound();
 
@@ -47,7 +50,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
   const joined=data.members.filter(m=>m.first_seen_at).length;
   const hidden=data.items.filter(i=>i.archived_at || (i.folder_id && !folders.some(f=>f.id===i.folder_id)));
 
-  return <Shell signedIn name={profile.full_name || 'Admin'} initials="MT">
+  return <Shell signedIn admin name={profile.full_name || 'Admin'} initials="MT">
     <BackLink href="/admin">Back to all clients</BackLink>
     <div className="heading">
       <div>
@@ -58,8 +61,10 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
     </div>
 
     <nav className="section-links" aria-label="Workspace sections">
-      <a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a>
+      <a href="#tracks">Work tracks</a><a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a>
     </nav>
+
+    <TrackManager clientId={id} slug={data.client.slug} tracks={data.tracks} />
 
     <section id="content" className="form-panel">
       <h2>Add content</h2>
@@ -126,7 +131,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
     <section id="folders" className="form-panel">
       <h2>Folders</h2>
       <p className="muted">Drag a row by its handle to place it before another, or use the arrow buttons.</p>
-      <FolderControls clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
+      <FolderControls clientId={id} folders={folders.map(f=>({id:f.id,name:f.name,track_id:f.track_id}))} tracks={data.tracks}/>
       <ActionForm action={createFolder.bind(null,id)} className="inline-form add-folder" success="Folder added.">
         <label className="sr-only" htmlFor="new-folder">New folder name</label>
         <input id="new-folder" name="name" required maxLength={120} placeholder="New folder name"/>

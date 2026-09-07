@@ -6,7 +6,7 @@ import { ActionForm } from './action-form';
 
 const DRAG_TYPE = 'text/koodos-folder';
 
-export function FolderControls({ clientId, folders }: { clientId: string; folders: { id: string; name: string }[] }) {
+export function FolderControls({ clientId, folders, tracks }: { clientId: string; folders: { id: string; name: string; track_id: string | null }[]; tracks: { id: string; name: string; archived_at: string | null }[] }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState('');
@@ -59,6 +59,12 @@ export function FolderControls({ clientId, folders }: { clientId: string; folder
       <ActionForm action={renameFolder.bind(null, clientId, folder.id)} className="folder-name">
         <label className="sr-only" htmlFor={folder.id}>Folder name</label>
         <input id={folder.id} name="name" defaultValue={folder.name} required maxLength={120} />
+        <label className="sr-only" htmlFor={'track-'+folder.id}>Work track for {folder.name}</label>
+        <select id={'track-'+folder.id} name="track_id" defaultValue={folder.track_id || ''}>
+          <option value="">No work track</option>
+          {tracks.filter(track => !track.archived_at).map(track => <option key={track.id} value={track.id}>{track.name}</option>)}
+          {tracks.filter(track => track.archived_at && track.id === folder.track_id).map(track => <option key={track.id} value={track.id} disabled>{track.name} (archived — choose another)</option>)}
+        </select>
         <button className="button secondary compact">Save</button>
       </ActionForm>
 
