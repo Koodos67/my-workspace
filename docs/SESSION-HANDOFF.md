@@ -176,6 +176,35 @@ saved item is a draft artifact with `text/html` and the provenance note.
 Known gap: the title comes from the fetched `<title>` and cannot be edited in the preview —
 rename after saving via the normal item edit form.
 
+### What URL import can and cannot take (learned 7 September)
+
+The user imported a Claude artifact **share URL** and got a dark, empty page. That is expected
+and not fixable by improving the importer: a share link is an application page that renders the
+artifact inside its own nested frame, so fetching it returns the wrapper shell, not the artifact
+document. No amount of archiving changes that — you would be storing the viewer, not the work.
+
+**The right path for a Claude artifact is to export/download it as a self-contained HTML file
+and upload that**, which the dropzone already handles and the e2e suite already proves works,
+including interactive scripts inside the sandbox.
+
+URL import is for pages that are genuinely one self-contained document. The preview now says so
+loudly: if the page loads its code from separate files it shows a red "This page will not work
+as an artifact" notice naming the count and pointing at the export route, rather than letting an
+admin publish a blank page and find out from the client.
+
+Two real bugs were found from that report and fixed:
+
+- **No artifact font could ever load, uploaded or imported.** The parent CSP said
+  `font-src 'self'` and the injected sandbox policy said `font-src data:`; a srcdoc document
+  inherits the embedder's policy, so the intersection was empty. `src/proxy.ts` now sends
+  `font-src 'self' data:`. Note `img-src` has the same shape — parent `'self' data:` against
+  sandbox `data: blob:` — so `blob:` images still cannot load. Left as is deliberately; widen the
+  parent only if an artifact needs it.
+- **The "external resources" warning only counted absolute URLs.** The regex required
+  `http://` or `//`, so the common case — a bundle referenced as `/assets/index-abc.js` — scored
+  zero and no warning appeared. Anything not already `data:`/`blob:` is unreachable once the
+  document sits on an opaque origin with no base URL, and is now counted as such.
+
 ## Remaining work and constraints
 
 - Keep new content as drafts until an admin explicitly publishes. Improve further only with

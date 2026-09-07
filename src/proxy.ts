@@ -7,7 +7,9 @@ export function proxy(request: NextRequest) {
     "script-src 'self' 'nonce-" + nonce + "'" + (development ? " 'unsafe-eval'" : ''),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
-    "font-src 'self'",
+    // A srcdoc artifact inherits this policy, so data: must be allowed here for the
+    // sandbox's own font-src data: to mean anything. Without it no artifact font loads.
+    "font-src 'self' data:",
     "connect-src 'self' https://vercel.com/api/blob https://vercel.com/api/blob/ https://blob.vercel-storage.com https://*.blob.vercel-storage.com" + (development ? ' ws: wss:' : ''),
     "frame-src 'self'",
     "frame-ancestors 'none'",
