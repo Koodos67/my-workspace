@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // separately from the portal. This proxy overwrites the CSP on everything it touches, so those
 // routes must pass through untouched — otherwise frame-ancestors 'none' from the portal policy
 // lands on the artifact and the item page cannot frame it at all.
-const SELF_POLICED = [/^\/api\/import-preview$/, /^\/api\/items\/[^/]+\/render$/];
+const SELF_POLICED = [/^\/api\/items\/[^/]+\/render$/];
 
 export function proxy(request: NextRequest) {
   if (SELF_POLICED.some(route => route.test(request.nextUrl.pathname))) return NextResponse.next();

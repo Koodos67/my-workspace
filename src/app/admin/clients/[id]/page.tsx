@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Globe, Link2,
+  ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2,
   MailPlus, RotateCcw, Settings2, ShieldAlert, SquarePen, UserMinus, UserRound, Users,
 } from 'lucide-react';
 import { requireAdmin } from '@/lib/auth';
@@ -13,7 +13,6 @@ import { ActionForm } from '@/components/action-form';
 import { UploadPanel } from '@/components/upload-panel';
 import { FolderControls } from '@/components/folder-controls';
 import { ItemIcon, itemTypeLabel } from '@/components/item-icon';
-import { UrlImport } from '@/components/url-import';
 import { archiveClient, createFolder, inviteMember, revokeMember, updateClient, restoreFolder } from '../../actions';
 import { createLink, editItem, archiveItem, moveItem } from '../../content-actions';
 
@@ -76,10 +75,6 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
           <button className="button">Add link draft</button>
         </ActionForm>
       </details>
-      <details className="sub-panel">
-        <summary><Globe size={16} aria-hidden="true" /> Import an artifact from a URL</summary>
-        <UrlImport clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
-      </details>
     </section>
 
     <section>
@@ -110,7 +105,6 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
                 <PublicationControls key={String(!!item.published_at)} published={!!item.published_at}/>
               </ActionForm>
               {item.type!=='link' && <UploadPanel clientId={id} itemId={item.id} folderId={item.folder_id || ''}/>}
-              {item.type==='artifact' && <UrlImport clientId={id} itemId={item.id} folderId={item.folder_id || ''}/>}
               <div className="inline-form">
                 <ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'up')}><button className="icon-button" disabled={index===0}><ArrowUp size={15} aria-hidden="true" /><span className="button-text">Move up</span></button></ActionForm>
                 <ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'down')}><button className="icon-button" disabled={index===items.length-1}><ArrowDown size={15} aria-hidden="true" /><span className="button-text">Move down</span></button></ActionForm>

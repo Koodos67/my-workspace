@@ -162,39 +162,6 @@ test('admin delivers private versioned content; only members see published items
   await linkForm.getByLabel('URL',{exact:true}).fill('https://example.com/research');
   await linkForm.getByRole('button',{name:'Add link draft'}).click();
   await expect(page.getByText('Link added as a draft.')).toBeVisible();
-
-  // URL import: the SSRF guard refuses anything that is not a plain public web address.
-  await page.locator('#content summary').filter({hasText:'Import an artifact from a URL'}).click();
-  const importPanel=page.locator('#content .url-import');
-  const refusals: [string,string][] = [
-    ['http://localhost/','That address is not publicly routable.'],
-    ['http://example.com:8080/','Only the standard web ports are allowed.'],
-    ['http://169.254.169.254/latest/meta-data/','That address is not publicly routable.'],
-    ['https://admin:secret@example.com/','Remove the credentials from the URL.'],
-    ['ftp://example.com/','Use an http or https URL.'],
-    ['http://127.0.0.1/','That address is not publicly routable.'],
-    // A viewer page has no fetchable document behind it; refused before any request is made.
-    ['https://claude.ai/code/artifact/9a49643d-6158-47be-8987-8336298b3921','That is a Claude share link, which is a viewer page rather than the artifact itself — the artifact is served separately and cannot be fetched. Open it, download or export it as an HTML file, and upload that file instead.'],
-  ];
-  for (const [blocked,message] of refusals) {
-    await importPanel.getByLabel('Artifact URL').fill(blocked);
-    await importPanel.getByRole('button',{name:'Fetch and preview'}).click();
-    await expect(importPanel.getByRole('alert')).toHaveText(message,{timeout:30000});
-  }
-  // Nothing is written until the preview is confirmed.
-  await importPanel.getByLabel('Artifact URL').fill('https://example.com/');
-  await importPanel.getByRole('button',{name:'Fetch and preview'}).click();
-  await expect(importPanel.getByText('Preview · nothing saved yet')).toBeVisible({timeout:60000});
-  await expect(importPanel.frameLocator('iframe').getByRole('heading',{name:'Example Domain'})).toBeVisible({timeout:30000});
-  await importPanel.screenshot({path:'.shipstudio/qa-url-import.png'});
-  expect((await pool.query("SELECT count(*)::int AS total FROM items WHERE client_id=$1 AND title='Example Domain'",[clientId])).rows[0].total).toBe(0);
-  await importPanel.getByRole('button',{name:'Save as draft'}).click();
-  await expect(page.getByText('saved as a draft',{exact:false})).toBeVisible({timeout:60000});
-  const imported=(await pool.query("SELECT i.type,i.published_at,i.folder_id,v.version_note,v.mime_type FROM items i JOIN item_versions v ON v.id=i.current_version_id WHERE i.client_id=$1 AND i.title='Example Domain'",[clientId])).rows[0];
-  expect(imported.type).toBe('artifact');
-  expect(imported.published_at).toBeNull();
-  expect(imported.mime_type).toBe('text/html');
-  expect(imported.version_note).toContain('Imported from https://example.com/');
   await page.getByLabel('Company name').fill('QA workspace edited');
   await page.getByRole('button',{name:'Save workspace'}).click();
   await expect(page.getByRole('heading',{name:'QA workspace edited'})).toBeVisible();
