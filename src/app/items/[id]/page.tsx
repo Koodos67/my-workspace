@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 import { requireProfile } from '@/lib/auth';
 import { withActor } from '@/lib/db';
 import { Shell } from '@/components/shell';
@@ -20,7 +19,6 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
   if(!data)notFound();
   const {item,versions}=data, version=versions.find(v=>v.id===(selected || item.current_version_id));
   if(selected && !version)notFound();
-  const nonce=(await headers()).get('x-nonce') || '';
   return <Shell signedIn client={profile.role!=='admin'} name={item.client_name} initials={(profile.full_name || profile.email).slice(0,2).toUpperCase()}>
     <BackLink href={profile.role==='admin' ? '/admin/clients/'+item.client_id : '/c/'+item.slug+(item.folder_id?'#folder-'+item.folder_id:'')}>{profile.role==='admin' ? 'Back to manage '+item.client_name : 'Back to '+item.client_name}</BackLink>
     {item.folder_name && <p className="eyebrow">{item.folder_name}</p>}
@@ -28,7 +26,7 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
     {item.type==='link'?<a className="button" href={item.url} target="_blank" rel="noopener noreferrer">Open link ↗</a>:version?<>
       <div className="section-top"><a className="button secondary" href={`/api/items/${id}/file?version=${version.id}&download=1`}>Download original ↓</a><span className="muted">{(Number(version.size_bytes)/1024).toFixed(1)} KB · {new Date(version.created_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</span></div>
       {version.id!==item.current_version_id && <p className="notice">Viewing an earlier version. <Link href={'/items/'+id}>Return to the current version</Link>.</p>}
-      {item.type==='artifact'?<ArtifactViewer itemId={id} versionId={version.id} title={item.title} nonce={nonce}/>:<div className="empty"><h2>Your file is ready.</h2><p className="muted">Download the original to view it on your device.</p></div>}
+      {item.type==='artifact'?<ArtifactViewer itemId={id} versionId={version.id} title={item.title}/>:<div className="empty"><h2>Your file is ready.</h2><p className="muted">Download the original to view it on your device.</p></div>}
       {versions.length>1 && <details className="form-panel"><summary>Version history ({versions.length})</summary>{versions.map((v,index)=><div className="member-row" key={v.id}><div><Link href={`/items/${id}?version=${v.id}`}>Version {versions.length-index}{v.id===item.current_version_id?' · Current':''}</Link><p className="muted">{v.version_note || 'No version note'} · {new Date(v.created_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</p></div><a href={`/api/items/${id}/file?version=${v.id}&download=1`}>Download ↓</a></div>)}</details>}
     </>:<div className="empty">No file has been uploaded yet.</div>}
   </Shell>;

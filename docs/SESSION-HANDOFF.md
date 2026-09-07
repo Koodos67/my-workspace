@@ -176,6 +176,45 @@ saved item is a draft artifact with `text/html` and the provenance note.
 Known gap: the title comes from the fetched `<title>` and cannot be edited in the preview —
 rename after saving via the normal item edit form.
 
+### Artifacts are served from their own route, under their own policy (7 September)
+
+The user's artifacts are almost all Claude-authored HTML, which routinely references CDN
+scripts and Google Fonts from the `<head>`. They chose to allow those hosts rather than inline
+the assets, because inlining would store another copy of Tailwind and the same font files in
+Blob for every artifact *and every version*, and privacy is not a concern for this content.
+
+Allowing CDNs naively was not possible: artifacts rendered through `srcdoc`, and a srcdoc
+document **inherits the embedder's CSP**, so permitting `unpkg`/`cdnjs` for artifacts would have
+permitted them for the admin portal itself. So artifacts now load from their own routes instead:
+
+- `GET /api/items/[id]/render` — the stored artifact, access decided by RLS inside `withActor`
+  exactly as the download route is, and restricted to `type='artifact'` so a stored PDF can
+  never be served as HTML.
+- `GET /api/import-preview?receipt=…` — a staged, unsaved import, authorised by the same
+  HMAC-signed actor-bound ticket the commit path uses.
+- Both send `ARTIFACT_CSP` from `src/lib/artifact-response.ts`. The allowed hosts live in
+  `src/lib/artifact-hosts.ts` and are shared with the import preview's warnings.
+
+**`sandbox allow-scripts` in that response CSP is load-bearing.** It puts the document on an
+opaque origin however it is reached, so even opening the render URL directly in a tab cannot
+touch the session cookie. Do not remove it. `connect-src 'none'` also stays: an artifact
+renders, it does not call home.
+
+**The proxy must leave these routes alone.** `src/proxy.ts` overwrites the CSP on everything it
+matches, including `/api/*`. It stomped the artifact policy — including `frame-ancestors 'none'`,
+which silently stopped the item page from framing the artifact at all — until the routes were
+added to `SELF_POLICED`. The header was correct in code and wrong at runtime; only the
+end-to-end test caught it. If artifacts ever render blank again, check this first.
+
+This deleted `artifact-html.ts` and the client-side sanitiser with it. The viewer is now a plain
+iframe pointed at the route, so the old "the child must reuse the parent's nonce" constraint is
+gone, along with the `nonce` prop threaded through both pages.
+
+The e2e artifact fixture now references `fonts.googleapis.com` and a deliberately non-existent
+file on `cdn.jsdelivr.net`. The suite's existing "no CSP violations" assertion therefore proves
+the allowed hosts really are permitted; a 404 is a network error, not a policy one, so this needs
+no real library. One cold-start flake was seen on the first run after adding them; clean since.
+
 ### What URL import can and cannot take (learned 7 September)
 
 The user imported a Claude artifact **share URL** and got a dark, empty page. That is expected

@@ -57,7 +57,11 @@ test('admin delivers private versioned content; only members see published items
   await page.getByRole('button',{name:'Add folder',exact:true}).click();
   await expect(page.getByRole('button',{name:'Drag Reports to reorder'})).toBeVisible();
   await page.locator('#content select').first().selectOption({label:'Reports'});
-  const html='<!doctype html><html><head><title>QA interactive report</title></head><body><h1>Version one</h1><button id="count">Count</button><p id="result">0</p><script>document.getElementById("count").addEventListener("click",()=>document.getElementById("result").textContent="1");try{parent.document.body.dataset.leaked="yes"}catch{document.body.dataset.isolated="yes"}</script></body></html>';
+  // The CDN references prove the artifact policy permits them: if either host were blocked the
+  // browser logs a CSP violation and the assertion at the end of this test fails. The script
+  // path deliberately does not exist — a 404 is a network error, not a policy one — so this
+  // checks the policy without depending on a real library being fetched.
+  const html='<!doctype html><html><head><title>QA interactive report</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><script src="https://cdn.jsdelivr.net/npm/koodos-csp-probe-does-not-exist.js"></script></head><body><h1>Version one</h1><button id="count">Count</button><p id="result">0</p><script>document.getElementById("count").addEventListener("click",()=>document.getElementById("result").textContent="1");try{parent.document.body.dataset.leaked="yes"}catch{document.body.dataset.isolated="yes"}</script></body></html>';
   await test.step('a stalled Blob transfer times out and allows retry', async () => {
     let received!: (route: Route) => void;
     const pending = new Promise<Route>(resolve => { received = resolve; });
@@ -82,6 +86,7 @@ test('admin delivers private versioned content; only members see published items
   await member.goto('/c/qa-'+run);
   await expect(member.getByText('QA interactive report',{exact:true})).toHaveCount(0);
   expect((await memberContext.request.get(base+'/api/items/'+item.id+'/file')).status()).toBe(404);
+  expect((await memberContext.request.get(base+'/api/items/'+item.id+'/render')).status()).toBe(404);
   await page.locator('.content-row summary').first().click();
   await page.locator('.publication-panel').screenshot({path:'.shipstudio/qa-publish-draft.png'});
   await page.getByRole('link',{name:'Preview item'}).click();
@@ -117,6 +122,20 @@ test('admin delivers private versioned content; only members see published items
   const unsigned=new URL(signedBody.url);unsigned.search='';
   expect((await fetch(unsigned)).ok).toBeFalsy();
   expect((await strangerContext.request.get(base+'/api/items/'+item.id+'/file')).status()).toBe(404);
+  await test.step('the render route serves the artifact under its own policy, with the same access rules', async () => {
+    const rendered=await memberContext.request.get(base+'/api/items/'+item.id+'/render');
+    expect(rendered.ok()).toBeTruthy();
+    expect(await rendered.text()).toContain('Version one');
+    // Its own policy, not the portal's: opaque origin however it is reached, CDNs allowed, no calling home.
+    const policy=rendered.headers()['content-security-policy'];
+    expect(policy).toContain('sandbox allow-scripts');
+    expect(policy).not.toContain('allow-same-origin');
+    expect(policy).toContain('https://cdn.tailwindcss.com');
+    expect(policy).toContain("connect-src 'none'");
+    expect(rendered.headers()['content-type']).toContain('text/html');
+    // A member of another client, and a link item, must not be renderable.
+    expect((await strangerContext.request.get(base+'/api/items/'+item.id+'/render')).status()).toBe(404);
+  });
   await stranger.goto('/admin');
   await expect(stranger.getByRole('heading',{name:'Your clients, together.'})).toHaveCount(0);
   const oldVersion=item.current_version_id;

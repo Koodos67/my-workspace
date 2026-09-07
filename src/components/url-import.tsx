@@ -3,12 +3,12 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CircleAlert, Download, Globe, Trash2 } from 'lucide-react';
 import { discardImport, finishUpload, importFromUrl, type ImportPreview } from '@/app/admin/content-actions';
-import { toSandboxDocument } from '@/lib/artifact-html';
+import { ALLOWED_HOSTS } from '@/lib/artifact-hosts';
 
 type Staged = Extract<ImportPreview, { ok: true }>;
 
-export function UrlImport({ clientId, folders = [], itemId, folderId = '', nonce }: {
-  clientId: string; folders?: { id: string; name: string }[]; itemId?: string; folderId?: string; nonce: string;
+export function UrlImport({ clientId, folders = [], itemId, folderId = '' }: {
+  clientId: string; folders?: { id: string; name: string }[]; itemId?: string; folderId?: string;
 }) {
   const [url, setUrl] = useState('');
   const [folder, setFolder] = useState(folderId);
@@ -18,25 +18,35 @@ export function UrlImport({ clientId, folders = [], itemId, folderId = '', nonce
   const [done, setDone] = useState('');
   const router = useRouter();
 
-  const document_ = useMemo(() => staged ? toSandboxDocument(staged.html, nonce) : '', [staged, nonce]);
-
-  // What the sandbox will and will not honour, so the admin sees the caveats before saving.
-  // Anything not already inline is external once stored: the document ends up on an opaque
-  // origin with no base URL, so a relative path is just as unreachable as an absolute one.
+  // Classifies each referenced asset the way the served policy will treat it: inline and
+  // data: URLs always work, the allowed CDNs load at view time, and everything else — an
+  // unlisted host, or a relative path that no longer resolves once stored — is blocked.
   const analysis = useMemo(() => {
     if (!staged) return null;
     const doc = new DOMParser().parseFromString(staged.html, 'text/html');
-    const count = (selector: string, attribute: string) => Array.from(doc.querySelectorAll(selector))
-      .filter(element => {
-        const value = (element.getAttribute(attribute) || '').trim();
-        return value !== '' && !value.startsWith('data:') && !value.startsWith('blob:') && !value.startsWith('#');
-      }).length;
-    return {
-      scripts: count('script[src]', 'src') + count('link[rel~="modulepreload"]', 'href'),
-      styles: count('link[rel~="stylesheet"]', 'href'),
-      media: count('img[src]', 'src') + count('link[rel~="preload"][as="font"]', 'href'),
-      text: (doc.body?.textContent || '').trim().length,
+    const tally = { cdn: 0, blockedScripts: 0, blockedAssets: 0 };
+    const classify = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('#')) return 'inline';
+      try {
+        return ALLOWED_HOSTS.includes(new URL(trimmed, staged.finalUrl).origin) ? 'cdn' : 'blocked';
+      } catch {
+        return 'blocked';
+      }
     };
+    const walk = (selector: string, attribute: string, script: boolean) => {
+      for (const element of Array.from(doc.querySelectorAll(selector))) {
+        const verdict = classify(element.getAttribute(attribute) || '');
+        if (verdict === 'cdn') tally.cdn++;
+        else if (verdict === 'blocked') script ? tally.blockedScripts++ : tally.blockedAssets++;
+      }
+    };
+    walk('script[src]', 'src', true);
+    walk('link[rel~="modulepreload"]', 'href', true);
+    walk('link[rel~="stylesheet"]', 'href', false);
+    walk('link[rel~="preload"][as="font"]', 'href', false);
+    walk('img[src]', 'src', false);
+    return { ...tally, text: (doc.body?.textContent || '').trim().length };
   }, [staged]);
 
   async function preview(event: React.FormEvent) {
@@ -122,30 +132,34 @@ export function UrlImport({ clientId, folders = [], itemId, folderId = '', nonce
         </div>
       </div>
 
-      {analysis && analysis.scripts > 0 && <p className="notice stop" role="status">
+      {analysis && analysis.blockedScripts > 0 && <p className="notice stop" role="status">
         <CircleAlert size={16} aria-hidden="true" /> <span>
-          <strong>This page will not work as an artifact.</strong> It loads its code from {analysis.scripts} separate
-          {analysis.scripts === 1 ? ' file' : ' files'}, and an artifact is a single stored document — those files
-          cannot come with it, so the page has nothing to run. This is what a share link for an app-rendered page
-          looks like. Export or download the artifact as a <strong>self-contained HTML file</strong> and upload that
-          instead.
+          <strong>This page will not work as an artifact.</strong> It loads its code from {analysis.blockedScripts}
+          {analysis.blockedScripts === 1 ? ' file' : ' files'} that cannot come with it — its own build output, or a
+          host that is not on the allowed list. This is what a share link for an app-rendered page looks like. Export
+          or download the artifact as a <strong>self-contained HTML file</strong> and upload that instead.
         </span>
       </p>}
-      {analysis && analysis.scripts === 0 && analysis.text < 40 && <p className="notice warn" role="status">
+      {analysis && analysis.blockedScripts === 0 && analysis.text < 40 && <p className="notice warn" role="status">
         <CircleAlert size={16} aria-hidden="true" /> <span>This page has almost no text of its own, so it may appear
         blank to the client. Check the preview below before saving.</span>
       </p>}
-      {analysis && (analysis.styles > 0 || analysis.media > 0) && <p className="notice warn" role="status">
+      {analysis && analysis.blockedAssets > 0 && <p className="notice warn" role="status">
         <CircleAlert size={16} aria-hidden="true" /> <span>
-          {analysis.styles > 0 && `${analysis.styles} stylesheet${analysis.styles === 1 ? '' : 's'}`}
-          {analysis.styles > 0 && analysis.media > 0 && ' and '}
-          {analysis.media > 0 && `${analysis.media} image or font file${analysis.media === 1 ? '' : 's'}`}
-          {' '}will not load in the sandbox, so the styling may differ from the original page.
+          {analysis.blockedAssets} stylesheet{analysis.blockedAssets === 1 ? '' : 's'}, font{analysis.blockedAssets === 1 ? '' : 's'} or
+          image{analysis.blockedAssets === 1 ? '' : 's'} will not load, so the styling may differ from the original page.
+        </span>
+      </p>}
+      {analysis && analysis.cdn > 0 && <p className="notice" role="status">
+        <CircleAlert size={16} aria-hidden="true" /> <span>
+          Loads {analysis.cdn} file{analysis.cdn === 1 ? '' : 's'} from an allowed CDN at view time. These render
+          correctly, but the artifact is not self-contained — it depends on those CDNs staying available.
         </span>
       </p>}
 
-      <p className="muted">This is the client&apos;s view, in the same sandbox they get:</p>
-      <iframe className="artifact-frame" title={'Preview of ' + staged.title} srcDoc={document_}
+      <p className="muted">This is the client&apos;s view, served under the same policy they get:</p>
+      <iframe className="artifact-frame" title={'Preview of ' + staged.title}
+        src={'/api/import-preview?receipt=' + encodeURIComponent(staged.receipt)}
         sandbox="allow-scripts" referrerPolicy="no-referrer" />
     </div>}
   </div>;
