@@ -96,7 +96,7 @@ filtering, artifact sandboxing or the approval state machine.** Treat this styli
 
 ### Status and what is not done
 
-- Shipped in one PR to `main` and deployed to production automatically. See "Current release".
+- Shipped through PR #10, merged to `main` as `88a8463`, and deployed to production automatically.
 - The admin board (`/admin/board`) was deliberately left alone: it was not in scope and its
   cards already differentiate by column. It now shares the status hues, so it stays coherent.
 - Performance optimisation remains deferred at the user's request. No dark mode work was done;
@@ -104,6 +104,10 @@ filtering, artifact sandboxing or the approval state machine.** Treat this styli
 
 ## Current release
 
+- The work-track and approval style pass shipped through PR #10, merged to main as `88a8463`,
+  and is live on production. Presentation and copy only — no migration, no server action change,
+  and no change to auth, RLS, publication filtering, artifact sandboxing or approval behaviour.
+  Typecheck, production build and all three browser suites passed unmodified before the merge.
 - Plan and Launch approvals shipped through PR #9, merged to main as `8f2efcb`.
   Migration 005 is applied in production; approval, tenant-isolation, content-delivery,
   and work-track checks passed, together with typecheck and production build.
