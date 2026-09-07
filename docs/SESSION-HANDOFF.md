@@ -6,6 +6,8 @@ in here and deleted.
 
 ## Current release
 
+- Work tracks, client progress and the admin board shipped through PR #8, merged to main
+  as `e506464`. Migration 004 is applied in production (14 tracks across two clients).
 - Production: https://portal.getkoodos.com (also https://my-workspace-beta-jet.vercel.app).
 - Content delivery and real branding shipped in commit `e0111e3` on `main`.
 - Publishing and navigation improvements shipped through PR #1, merged as `5d51e6f`.
