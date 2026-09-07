@@ -64,7 +64,7 @@ two so the PRD stays coherent.
 ### Schema — `database/migrations/004_tracks.sql`
 
 ```
-tracks   id · client_id · name · summary · deliverable · position
+tracks   id · client_id · name · summary · deliverable · position · recurring
          · status ('not_started'|'in_progress'|'waiting_on_client'|'on_hold'|'done')
          · status_note · status_changed_at · archived_at · created_at
          unique (id, client_id)
@@ -178,17 +178,38 @@ folders. That has three consequences:
 Stages 3 and 5 ("Plan for approval", "Review") are the natural homes for `waiting_on_client`,
 which validates keeping that status.
 
-### Two edge cases needing the user's call before building
+### Both edge cases decided (7 September)
 
-- **"Operate" never completes.** It is ongoing, with a recurring quarterly report, so it will sit
-  in progress indefinitely and a linear spine implies it is the last thing that happens. Options:
-  let it sit in progress forever; give it its own presentation outside the spine as an ongoing
-  service; or add a `recurring` flag so the UI treats it differently. Not decided.
-- **"Not started" will dominate the admin board.** Seven tracks per client means most cards sit
-  in that column — three clients is already 21 cards, most of them noise. Suggest the board
-  defaults to hiding `not_started` and `done`, showing only live work, with a chip to reveal
-  everything. This overlaps with the parked "Needs attention" chip and the two should be designed
-  together.
+**Operate is presented separately, not as the end of the spine.** It is an ongoing service with a
+recurring quarterly report, so showing it as stage 7 of a sequence implies it is the last thing
+that happens rather than the thing that continues.
+
+- Add `recurring boolean not null default false` to `tracks`, seeded true for Operate. An
+  explicit column, not a match on name or position — those are fragile and the user can rename.
+- **Client view:** the progress spine covers stages 1–6. Operate renders below it as its own
+  panel — an ongoing service with its status, note and deliverable, not a step to be completed.
+- **Admin board:** recurring tracks are excluded from the kanban entirely and appear in a compact
+  "Ongoing" strip beneath it, one row per client with status and last-changed. This mirrors the
+  client view, and avoids the subtler alternative of special-casing a recurring track's status
+  inside the columns.
+
+**The board hides `not_started` and `done` by default.** Default columns are therefore
+`in_progress`, `waiting_on_client`, `on_hold` — live work only. A "Show all stages" chip reveals
+the rest, as a URL parameter (`/admin/board?show=all`) for the same reasons the client filter is.
+
+**The consequence that matters: hiding `done` would break dragging a card to done**, which is the
+most common action on the board. So each card carries a **status control as well as drag**. That
+is needed regardless — drag alone is not keyboard accessible, and it is the same reason
+`FolderControls` kept arrow buttons alongside its drag handle. With a control on the card, hidden
+columns cost nothing. Slim always-visible drop zones at either edge are optional polish, not
+required.
+
+### "Needs attention" chip — now parked as probably redundant
+
+Hiding `not_started` and `done` makes the default board *already* a live-work view, which was
+most of what that chip was for. What it would still add is narrowing to `waiting_on_client` plus
+tracks unchanged for 14+ days. Do not build it in the first cut; revisit only if the default view
+proves too noisy in real use.
 
 ## Completed 6 September — session two (admin client layout)
 
@@ -456,16 +477,15 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Settle three open questions with the user, all recorded in the plan: how "Operate" should
-   behave given it never completes; whether the board hides `not_started`/`done` by default; and
-   whether the "Needs attention" chip is in the first cut. None of them blocks starting the
-   migration and seeding.
-2. Build work tracks and the admin board to the agreed plan above. Read that section in full
+1. Build work tracks and the admin board to the agreed plan above. Read that section in full
    before starting: several decisions there were taken against cheaper-looking alternatives, and
    the reasons are recorded so they are not silently reversed. The real seven-stage process and
    its deliverables are recorded there too.
-3. Also collect the user's production feedback on the admin client layout (PR #2) and the
+2. Also collect the user's production feedback on the admin client layout (PR #2) and the
    artifact policy change (PR #5), neither of which has been reviewed yet.
+
+The plan carries no open questions. Every decision needed to start is recorded, including the
+seven stages and their deliverables.
 
 Everything merged is already live; no deployment approval is outstanding. Keep this file current
 as work progresses.
