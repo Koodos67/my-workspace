@@ -6,6 +6,9 @@ in here and deleted.
 
 ## Current release
 
+- Plan and Launch approvals shipped through PR #9, merged to main as `8f2efcb`.
+  Migration 005 is applied in production; approval, tenant-isolation, content-delivery,
+  and work-track checks passed, together with typecheck and production build.
 - Work tracks, client progress and the admin board shipped through PR #8, merged to main
   as `e506464`. Migration 004 is applied in production (14 tracks across two clients).
 - Production: https://portal.getkoodos.com (also https://my-workspace-beta-jet.vercel.app).
