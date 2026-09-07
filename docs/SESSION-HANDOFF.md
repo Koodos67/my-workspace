@@ -64,7 +64,7 @@ two so the PRD stays coherent.
 ### Schema — `database/migrations/004_tracks.sql`
 
 ```
-tracks   id · client_id · name · position
+tracks   id · client_id · name · summary · deliverable · position
          · status ('not_started'|'in_progress'|'waiting_on_client'|'on_hold'|'done')
          · status_note · status_changed_at · archived_at · created_at
          unique (id, client_id)
@@ -136,9 +136,59 @@ N days" on each card, so a rotting track is visible to the studio before it is v
 
 About two days: the migration and seeding are small, the board and track management are the bulk.
 
-**Blocked on one answer before building:** the real stage names for `DEFAULT_TRACKS`.
-Discovery / Strategy / Delivery / Support were the assistant's placeholders, not the user's.
-Build it as an editable constant regardless.
+### The real process — `DEFAULT_TRACKS` (supplied 7 September)
+
+Seven stages, in order. Each has a description and, importantly, a named deliverable.
+
+| # | Stage | What happens | What you get |
+|---|---|---|---|
+| 1 | Discovery | A working session on the business, the buyers and the constraints | Written brief |
+| 2 | Research | Market, competitor and search analysis; content gap and citation audit | Research pack |
+| 3 | Plan | Sitemap, content model, design direction, stack recommendation | Plan for approval |
+| 4 | Build | Design and development against the approved plan | Staging site |
+| 5 | Review | One structured round of changes, tracked in writing | Change log |
+| 6 | Launch | Migration, redirects, analytics, handover documentation | Live site and keys |
+| 7 | Operate | Monitoring, fixes, measurement — and content, if you want it | Quarterly report |
+
+Seed as an editable constant, e.g. `{ name, summary, deliverable }` per entry, positioned 1000
+apart in this order.
+
+### Two schema additions this justifies
+
+Add `summary text` and `deliverable text` to `tracks`, seeded from the table above.
+
+The deliverable column is the highest-value part. A client's actual question is not "what status
+is Research" but **"where is my research pack"**. A track that names its expected output turns a
+status chip into an answer: *"Research — In progress — you'll get: Research pack · 3 items · last
+updated 4 Sept"*. Both fields are per-client editable after seeding.
+
+### The process is linear, which changes the client view
+
+Discovery → Research → Plan → Build → Review → Launch → Operate is a genuine sequence, unlike
+folders. That has three consequences:
+
+- It confirms tracks, not folders-with-a-status, were the right model — folders are categories,
+  this is a pipeline.
+- Order is meaningful and must not be sorted by anything but `position`.
+- **The client view should be a progress spine, not seven status chips.** "Stage 4 of 7 · Build"
+  with the completed stages behind it and the rest ahead answers "where are we" in one glance,
+  which seven chips do not. This supersedes the "compact status panel" described above — build
+  the spine, with each stage expandable to its note and deliverable.
+
+Stages 3 and 5 ("Plan for approval", "Review") are the natural homes for `waiting_on_client`,
+which validates keeping that status.
+
+### Two edge cases needing the user's call before building
+
+- **"Operate" never completes.** It is ongoing, with a recurring quarterly report, so it will sit
+  in progress indefinitely and a linear spine implies it is the last thing that happens. Options:
+  let it sit in progress forever; give it its own presentation outside the spine as an ongoing
+  service; or add a `recurring` flag so the UI treats it differently. Not decided.
+- **"Not started" will dominate the admin board.** Seven tracks per client means most cards sit
+  in that column — three clients is already 21 cards, most of them noise. Suggest the board
+  defaults to hiding `not_started` and `done`, showing only live work, with a chip to reveal
+  everything. This overlaps with the parked "Needs attention" chip and the two should be designed
+  together.
 
 ## Completed 6 September — session two (admin client layout)
 
@@ -406,11 +456,14 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Get the `DEFAULT_TRACKS` names from the user — the work tracks build is blocked on that one
-   answer, and on whether the "Needs attention" chip is in the first cut.
+1. Settle three open questions with the user, all recorded in the plan: how "Operate" should
+   behave given it never completes; whether the board hides `not_started`/`done` by default; and
+   whether the "Needs attention" chip is in the first cut. None of them blocks starting the
+   migration and seeding.
 2. Build work tracks and the admin board to the agreed plan above. Read that section in full
    before starting: several decisions there were taken against cheaper-looking alternatives, and
-   the reasons are recorded so they are not silently reversed.
+   the reasons are recorded so they are not silently reversed. The real seven-stage process and
+   its deliverables are recorded there too.
 3. Also collect the user's production feedback on the admin client layout (PR #2) and the
    artifact policy change (PR #5), neither of which has been reviewed yet.
 
