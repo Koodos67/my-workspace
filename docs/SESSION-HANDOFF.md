@@ -215,6 +215,28 @@ file on `cdn.jsdelivr.net`. The suite's existing "no CSP violations" assertion t
 the allowed hosts really are permitted; a 404 is a network error, not a policy one, so this needs
 no real library. One cold-start flake was seen on the first run after adding them; clean since.
 
+### Claude share links cannot be imported — settled, do not investigate again
+
+Traced properly on 7 September against a real shared artifact, so nobody spends the time a
+fourth time. `https://claude.ai/code/artifact/<id>`:
+
+1. Returns a 15 KB **frame shell**, title "Claude Artifact", with one script from
+   `assets-proxy.anthropic.com` and no artifact content in the body.
+2. The shell's only job is to load the real document from `/api/frame/<id>` on claude.ai.
+3. That endpoint answers an automated request with **HTTP 403 and a Cloudflare bot challenge**.
+
+So there is no fetchable document behind the link. This is not a gap in the importer and no
+amount of archiving, inlining or CDN allowlisting changes it. Working around the bot protection
+is out of scope on principle, and would break on their next deploy regardless.
+
+`assertNotAViewerPage` in `content-actions.ts` now refuses these URLs **before fetching**, so the
+attempt costs no request and stages no file. The message points at the export route. Add other
+viewer-page patterns to `VIEWER_PAGES` if more turn up.
+
+The route that works for Claude-authored HTML is: export/download the artifact as a
+self-contained HTML file and upload it. With artifacts now served under their own policy, such a
+file renders correctly including its CDN scripts and fonts.
+
 ### What URL import can and cannot take (learned 7 September)
 
 The user imported a Claude artifact **share URL** and got a dark, empty page. That is expected

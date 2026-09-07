@@ -173,6 +173,8 @@ test('admin delivers private versioned content; only members see published items
     ['https://admin:secret@example.com/','Remove the credentials from the URL.'],
     ['ftp://example.com/','Use an http or https URL.'],
     ['http://127.0.0.1/','That address is not publicly routable.'],
+    // A viewer page has no fetchable document behind it; refused before any request is made.
+    ['https://claude.ai/code/artifact/9a49643d-6158-47be-8987-8336298b3921','That is a Claude share link, which is a viewer page rather than the artifact itself — the artifact is served separately and cannot be fetched. Open it, download or export it as an HTML file, and upload that file instead.'],
   ];
   for (const [blocked,message] of refusals) {
     await importPanel.getByLabel('Artifact URL').fill(blocked);
