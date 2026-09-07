@@ -124,7 +124,9 @@ export function UrlImport({ clientId, folders = [], itemId, folderId = '' }: {
         </div>
         <div className="import-preview-actions">
           <button type="button" className="button" onClick={save} disabled={!!busy}>
-            {busy === 'saving' ? 'Saving…' : itemId ? 'Save as new version' : 'Save as draft'}
+            {busy === 'saving' ? 'Saving…'
+              : analysis && analysis.blockedScripts > 0 ? 'Save anyway'
+              : itemId ? 'Save as new version' : 'Save as draft'}
           </button>
           <button type="button" className="button secondary" onClick={discard} disabled={!!busy}>
             <Trash2 size={15} aria-hidden="true" /> Discard

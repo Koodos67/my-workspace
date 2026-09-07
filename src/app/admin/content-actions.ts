@@ -74,6 +74,30 @@ function documentTitle(html: string, url: URL) {
   return (fallback || url.hostname).slice(0, 120);
 }
 
+/**
+ * Some share links are a viewer page rather than the document itself, so importing one stores
+ * an empty shell that renders blank for the client. Checked before fetching, so a known-bad
+ * URL costs no request and stages no file.
+ *
+ * Verified 7 September: claude.ai/code/artifact/<id> returns a frame shell whose only job is to
+ * load the real content from /api/frame/<id>, which answers automated requests with a Cloudflare
+ * bot challenge. There is no fetchable document behind these links, and working around that
+ * protection is not something to build. The artifact's own exported HTML file is the way in.
+ */
+const VIEWER_PAGES: { matches: (url: URL) => boolean; message: string }[] = [
+  {
+    matches: url => url.hostname === 'claude.ai' && /^\/(code\/artifact|public\/artifacts)\//.test(url.pathname),
+    message: 'That is a Claude share link, which is a viewer page rather than the artifact itself — '
+      + 'the artifact is served separately and cannot be fetched. Open it, download or export it as an '
+      + 'HTML file, and upload that file instead.',
+  },
+];
+
+function assertNotAViewerPage(url: URL) {
+  const viewer = VIEWER_PAGES.find(entry => entry.matches(url));
+  if (viewer) throw new FetchGuardError(viewer.message);
+}
+
 function importFilename(url: URL) {
   const segment = url.pathname.split('/').filter(Boolean).pop() || 'page';
   const base = segment.replace(/\.[^.]*$/, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'page';
@@ -90,6 +114,7 @@ export async function importFromUrl(clientId: string, form: FormData): Promise<I
   const { profile } = await requireAdmin();
   try {
     const source = assertFetchableUrl(textField(form, 'url', 2048));
+    assertNotAViewerPage(source);
     const folderId = String(form.get('folderId') || '') || null;
     const replacement = String(form.get('itemId') || '');
     await withActor(profile.id, async db => {
