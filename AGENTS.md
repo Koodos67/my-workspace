@@ -7,3 +7,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Project handoff
+
+Read `docs/SESSION-HANDOFF.md` before starting work. The user is making style changes
+with Claude Opus 5 after the 7 September 2026 handoff and will log those changes.
+On returning, review those logs, recent commits and the working-tree diff before
+editing. Preserve the updated styling as the new baseline; do not restore an older
+design merely to match previous session notes.

@@ -31,3 +31,38 @@ export function statusLabel(status: TrackStatus, audience: 'admin' | 'client' = 
 export function trackDate(value: string) {
   return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' });
 }
+
+/** One tone per status drives the marker shape, accent colour and row weight in both views. */
+export const STATUS_TONE: Record<TrackStatus, 'idle' | 'active' | 'attention' | 'paused' | 'complete'> = {
+  not_started: 'idle', in_progress: 'active', waiting_on_client: 'attention',
+  on_hold: 'paused', done: 'complete',
+};
+
+/** Tooltip copy. Says what the status means and, where it differs, what the client is told. */
+export const statusHelp: Record<TrackStatus, string> = {
+  not_started: 'Nothing has begun on this stage. Your client sees it greyed out in their progress spine.',
+  in_progress: 'Active work. This is where the studio’s time is going right now.',
+  waiting_on_client: 'Blocked until the client comes back to you. They see this stage as “Waiting on you”.',
+  on_hold: 'Paused on purpose — budget, timing or a dependency. The client sees “On hold”.',
+  done: 'Finished and handed over. Nothing further is expected on this stage.',
+};
+
+/** Whole days since an ISO timestamp, for staleness cues. */
+export function daysSince(value: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000));
+}
+
+/** Reads as a sentence fragment: "Status changed today" / "…3 days ago". */
+export function sinceLabel(value: string) {
+  const days = daysSince(value);
+  return days === 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago';
+}
+
+/**
+ * The stage the studio is actually on: the first that is neither finished nor unstarted.
+ * Falls back to the next unstarted stage so a fresh project still highlights where it begins.
+ */
+export function currentStageIndex(stages: { status: TrackStatus }[]) {
+  const live = stages.findIndex(track => track.status !== 'done' && track.status !== 'not_started');
+  return live >= 0 ? live : stages.findIndex(track => track.status !== 'done');
+}

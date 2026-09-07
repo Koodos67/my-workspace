@@ -11,7 +11,6 @@
 .track-editor{border:1px solid var(--line);border-radius:9px;margin:8px 0;scroll-margin-top:24px}
 .track-editor>summary{display:flex;gap:14px;align-items:center;padding:16px;list-style:none}
 .track-editor>summary::-webkit-details-marker,.client-progress summary::-webkit-details-marker{display:none}
-.track-number{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:22px}
 .track-editor-title{flex:1;min-width:0;overflow-wrap:anywhere}.track-editor-title small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:5px}
 .track-edit-cue{font-size:11px}.track-editor[open]>summary{border-bottom:1px solid var(--line);background:#f8faf5;border-radius:9px 9px 0 0}
 .track-editor-body{padding:22px}.track-editor-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:12px}
@@ -186,3 +185,240 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eef1e7;paddin
 .approval-spine-status{font-size:11px;color:var(--green);margin:0 0 12px}.approval-summary{font-size:12px;color:var(--green);margin:0 0 16px}
 @media(max-width:700px){.approval-card{padding:16px}.approval-buttons{flex-direction:column}.approval-buttons .button{width:100%}.approval-card-heading{align-items:start}.approval-scope{padding:12px}.progress-spine .approval-card{margin-left:-40px}.progress-spine .approval-history .approval-card{margin-left:0}}
 .track-editor-title .approval-inline-status{color:var(--green);font-weight:600}.approval-attention{font-size:13px;padding:12px 15px;background:#edf3e7;border-radius:6px;color:var(--green);margin:18px 0}
+
+/* ============================================================================
+   Track differentiation, track-editor zoning and approval layout.
+   One vocabulary across both views: a status decides a row's marker shape, its
+   left accent and how much it recedes, so "done" and "not started" can never be
+   mistaken for live work — and colour is never the only signal.
+   ============================================================================ */
+
+/* ---- Tooltips ---- */
+.hint{position:relative;display:inline-flex;vertical-align:middle;line-height:0}
+.hint-button{display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:transparent;color:#8b9484;transition:background .15s,color .15s}
+.hint-button:hover,.hint[data-open] .hint-button{background:#e7ece1;color:#3d5334}
+.hint-button svg{display:block;vertical-align:0}
+/* display:none rather than visibility, or a laid-out bubble widens the document's scroll area
+   at narrow viewports. A hidden element referenced by aria-describedby still supplies its text. */
+.hint-bubble{display:none;position:absolute;top:calc(100% + 8px);left:-8px;z-index:30;width:max-content;max-width:min(300px,72vw);padding:12px 14px;border-radius:8px;background:#242821;color:#f2f4ee;font-size:12px;font-weight:400;line-height:1.6;letter-spacing:0;text-align:left;text-transform:none;box-shadow:0 8px 22px #24282133}
+.hint-bubble strong{color:#fff;font-weight:700}
+.hint[data-align=end] .hint-bubble{left:auto;right:-8px}
+.hint:hover .hint-bubble,.hint[data-open] .hint-bubble{display:block}
+.hint-button:disabled{opacity:.45}
+/* A field whose label carries a hint: the icon button must sit outside the <label>, or it
+   inherits that label and starts answering to the field's own accessible name. */
+.field{display:grid;gap:9px;min-width:0}
+.field-label{display:flex;align-items:center;gap:5px}
+.field-label label{font-weight:600}
+
+/* ---- The stage-shape strip, shared by both views ---- */
+.stage-progress{display:flex;gap:4px;margin:18px 0 6px}
+.stage-progress-seg{flex:1;height:7px;border-radius:4px;background:#e6e9e0;box-shadow:inset 0 0 0 1px #dbe0d3}
+.stage-progress-seg[data-status=in_progress]{background:#5b7a4f;box-shadow:none}
+.stage-progress-seg[data-status=waiting_on_client]{background:#d3a44a;box-shadow:none}
+.stage-progress-seg[data-status=on_hold]{background:#b4a0b3;box-shadow:none}
+.stage-progress-seg[data-status=done]{background:var(--green);box-shadow:none}
+
+/* ---- Admin: work-track overview ---- */
+.track-overview{margin:18px 0 6px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:#f8faf5}
+.track-overview .stage-progress{margin:0 0 13px}
+.track-overview-facts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-size:12px;color:var(--muted)}
+.track-overview-facts strong{color:var(--ink);font-weight:700;font-size:13px}
+.track-overview-current{color:#3d5334}
+.track-overview-flag{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:20px;background:#f7edda;color:#805c1f;font-weight:600}
+.track-overview-flag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ---- Admin: the delivery-stage rail ---- */
+.track-management-group{margin-top:26px}
+.track-stage-list{position:relative}
+/* Sits behind the rows, so it reads as a connector only in the gaps between them. */
+.track-stage-list::before{content:"";position:absolute;left:31px;top:30px;bottom:30px;width:2px;border-radius:2px;background:#e0e4da}
+.track-management-group[data-group=ongoing] .track-stage-list::before{display:none}
+
+.track-editor{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;margin:8px 0;scroll-margin-top:24px;transition:border-color .15s,box-shadow .15s}
+.track-editor::after{content:"";position:absolute;inset:0 auto 0 0;width:4px;border-radius:10px 0 0 10px;background:#d7ddce;pointer-events:none}
+.track-editor[data-status=in_progress]::after{background:#5b7a4f}
+.track-editor[data-status=waiting_on_client]::after{background:#d3a44a}
+.track-editor[data-status=on_hold]::after{background:#b4a0b3}
+.track-editor[data-status=done]::after{background:var(--green)}
+.track-editor[data-status=not_started]{background:#fafbf7;border-style:dashed;border-color:#dde2d5}
+.track-editor[data-status=not_started]::after{background:transparent;border-left:4px dashed #d7ddce;border-radius:0}
+.track-editor[data-status=done]{background:#f6f8f2}
+.track-editor[data-current]{border-color:#a9bb9d;box-shadow:0 2px 10px #354c3714}
+.track-editor[data-current]::after{width:5px}
+.track-editor:hover{border-color:#c3cfba}
+.track-editor[open]{border-color:#b6c4ac;box-shadow:0 3px 14px #2428210f}
+
+.track-editor>summary{display:flex;gap:14px;align-items:center;padding:16px 16px 16px 18px;list-style:none;border-radius:10px}
+.track-editor>summary:hover{background:#f4f7ef}
+.track-editor[open]>summary{border-bottom:1px solid var(--line);background:#f4f7ef;border-radius:10px 10px 0 0}
+
+.track-marker{display:grid;place-items:center;width:30px;height:30px;flex-shrink:0;border-radius:50%;border:1.5px solid #d3dbc9;background:#fff;color:var(--muted);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.track-marker svg{display:block;vertical-align:0}
+.track-marker[data-status=not_started]{border-style:dashed;background:transparent}
+.track-marker[data-status=in_progress]{border-color:#5b7a4f;color:#3d5334;box-shadow:0 0 0 3px #e8efe2}
+.track-marker[data-status=waiting_on_client]{border-color:#c99a3d;color:#805c1f;box-shadow:0 0 0 3px #f8f0df}
+.track-marker[data-status=on_hold]{border-color:#b4a0b3;color:#6d566b}
+.track-marker[data-status=done]{border-color:var(--green);background:var(--green);color:#fff}
+
+.track-editor-title{flex:1;min-width:0;overflow-wrap:anywhere}
+.track-editor-name{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-weight:600}
+.track-editor[data-status=not_started] .track-editor-name,.track-editor[data-status=done] .track-editor-name{color:#6b7367;font-weight:500}
+.track-editor-title small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:5px}
+.track-summary-note{font-style:italic;color:#5b6456!important;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}
+.track-summary-age{font-size:11px!important;color:#8b9484!important}
+.stage-flag{padding:3px 8px;border-radius:4px;background:#e5eee1;color:#354c37;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.stage-flag[data-tone=next]{background:#eceee8;color:#66705f}
+.track-summary-side{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.track-edit-cue{font-size:11px}
+.track-editor[open] .track-edit-cue>span{display:inline-block;transform:rotate(180deg)}
+
+/* ---- Admin: inside a track ---- */
+.track-editor-body{padding:22px}
+.track-zone{padding:18px;border:1px solid var(--line);border-radius:9px;background:#fbfcf9}
+.track-zone+.track-zone{margin-top:16px}
+.track-zone[data-zone=reporting]{background:#f2f6ec;border-color:#d5e0cb}
+.track-zone-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}
+.track-zone-head .eyebrow{letter-spacing:1.4px}
+.track-zone[data-zone=reporting] .track-zone-head .eyebrow{color:#3d5334}
+.track-zone-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:end}
+.track-zone-grid>.wide{grid-column:1/-1}
+.track-zone-foot{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:15px 0 0;padding-top:14px;border-top:1px solid #dde5d3;font-size:12px;color:var(--muted)}
+.track-zone[data-zone=approval] label{max-width:420px}
+.track-form-foot{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:20px}
+.track-form-foot .muted{font-size:12px}
+.track-editor-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:12px}
+
+/* ---- Approvals: state chip shared by both views' summaries ---- */
+.approval-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:5px;background:#eeeeda;color:#6b602c;font-size:11px;font-weight:600;white-space:nowrap}
+.approval-chip::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.approval-chip[data-state=approved]{background:#dfeada;color:#354c37}
+.approval-chip[data-state=changes_requested],.approval-chip[data-state=stale]{background:#f4e9d1;color:#785924}
+.approval-chip[data-state=withdrawn],.approval-chip[data-state=superseded]{background:#e9ece5;color:var(--muted)}
+.approval-chip[data-state=pending]{background:#f6e7c8;color:#7a5615;box-shadow:0 0 0 1px #e3cb9a}
+
+/* ---- Approvals: the admin checkpoint panel ---- */
+.approval-manager{border:1px solid #dbe3d2;border-radius:10px;background:#fbfcf9;margin-top:20px;padding:20px}
+.approval-manager-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.approval-manager-head h3{flex:1;min-width:0;font-size:16px;font-weight:600;margin:0}
+.approval-kind-icon{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border-radius:8px;background:#e5edf4;color:#3a5a77}
+.approval-kind-icon svg{display:block;vertical-align:0}
+.approval-kind-icon[data-kind=launch]{background:#dcefe7;color:#1f6b51}
+.approval-manager>p.muted{font-size:12.5px;max-width:640px;margin:0 0 14px}
+.approval-next{display:flex;align-items:center;gap:9px;margin:0;padding:12px 14px;border-radius:8px;background:#eef1e9;color:#4d5548;font-size:12.5px!important;font-weight:600}
+.approval-next[data-tone=waiting]{background:#f8f0df;color:#7a5615}
+.approval-next[data-tone=good]{background:#e5eee1;color:#31502f}
+.approval-next[data-tone=warn]{background:#f7ece4;color:#7d4f28}
+.approval-withdraw{margin-top:-4px}
+
+/* ---- Approvals: the card ---- */
+.approval-card{background:#fff;border:1px solid #dce4d3;border-radius:10px;padding:22px;margin:16px 0;overflow-wrap:anywhere}
+.approval-card[data-answering]{border-color:#d9b874;box-shadow:0 3px 16px #a878231a}
+.approval-card[data-state=stale]{border-color:#e0d0aa;background:#fdfbf5}
+.approval-card[data-state=approved]{border-color:#bdd3b4}
+.approval-card[data-state=withdrawn],.approval-card[data-state=superseded]{background:#fafbf8;color:#6b7367}
+.approval-card-heading{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.approval-heading-title{display:flex;gap:11px;align-items:center;min-width:0}
+.approval-heading-title h3{font-size:16px;font-weight:600;margin:0;color:var(--ink)}
+.approval-request-number{display:block;margin-top:4px;font-size:11px;color:var(--muted)}
+.approval-prompt{margin:0 0 16px;padding:12px 14px;border-radius:8px;background:#fbf3e2;color:#7a5615;font-size:13px;font-weight:600}
+.approval-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:0 0 14px;padding:14px 16px;border-radius:8px;background:#f6f8f2}
+.approval-facts dt{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.approval-facts dd{margin:5px 0 0;font-size:13.5px;font-weight:600}
+a.approval-source{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border:1px solid #b9c5b4;border-radius:7px;background:#fff;color:#253c2b;font-size:13px;font-weight:600;text-decoration:none;transition:background .15s,border-color .15s}
+a.approval-source:hover{background:#e2eee7;border-color:var(--green)}
+.approval-scope{margin:16px 0;padding:16px;background:#fbfcf9;border:1px solid var(--line);border-left:3px solid #b6c4ac;border-radius:0 7px 7px 0}
+.approval-scope p{white-space:pre-wrap;margin:9px 0 0;font-size:13px}
+.approval-authority{font-size:12px;color:#55644c;line-height:1.65;margin:14px 0 0}
+.approval-explanation{font-size:12px!important;color:var(--muted);margin:14px 0 0}
+.approval-receipt{display:flex;gap:11px;align-items:start;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+.approval-receipt>svg{flex-shrink:0;margin-top:2px;color:var(--green)}
+.approval-receipt strong{font-size:13.5px}
+.approval-receipt p{margin:5px 0;font-size:11px!important;color:var(--muted)}
+.approval-receipt blockquote{white-space:pre-wrap;font-size:13px;margin:12px 0 0;padding-left:12px;border-left:2px solid #d5ddcb}
+
+/* ---- Approvals: the client's response ---- */
+.approval-response{margin-top:20px;padding:18px;border-radius:9px;background:#f7f9f3;border:1px solid #dce4d3}
+.approval-response fieldset{border:0;margin:0;padding:0;min-width:0}
+.approval-response-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.approval-comment{display:block;font-size:13px;font-weight:600}
+.approval-comment textarea{display:block;margin-top:9px;background:#fff;font-weight:400}
+.approval-consent{display:flex;align-items:start;gap:11px;font-size:13px;line-height:1.6;margin:16px 0;padding:14px;border-radius:8px;background:#fff;border:1px solid #d5ddcb;cursor:pointer}
+.approval-consent:hover{border-color:#a9bb9d}
+.approval-consent input{flex-shrink:0;margin-top:2px;width:18px;height:18px;accent-color:var(--green);cursor:pointer}
+.approval-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.approval-buttons-note{margin:12px 0 0;font-size:12px}
+.approval-response>p{font-size:12px;margin-top:12px}
+.approval-request-form{margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+.approval-request-form>summary{margin-bottom:16px;color:var(--green)}
+.approval-request-form .wide.muted{grid-column:1/-1;font-size:12px;margin:0}
+.approval-history{margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--line)}
+.approval-history>summary{font-size:12px;color:var(--muted)}
+.approval-history .approval-card{background:#fafbf8}
+
+/* ---- Client: progress spine ---- */
+.progress-heading-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.progress-heading-title .eyebrow{flex-basis:100%}
+.progress-heading-title h2{margin:8px 0}
+.client-progress .stage-progress{margin:16px 0 4px}
+.approval-attention{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;font-size:13px;padding:14px 16px;background:#fbf3e2;border:1px solid #e6d3aa;border-radius:8px;color:#7a5615;margin:18px 0}
+.approval-attention p{margin:0;font-weight:600}
+.approval-attention-links{display:flex;flex-wrap:wrap;gap:8px}
+.approval-attention-links a{padding:6px 11px;border-radius:6px;background:#fff;border:1px solid #e0cfa8;font-size:12px;font-weight:600}
+.approval-attention-links a:hover{background:#f6ecd8}
+.progress-spine>li{position:relative;padding:0 0 12px 46px;min-height:57px;scroll-margin-top:24px}
+.progress-spine>li:not(:last-child):before{content:"";position:absolute;top:32px;bottom:-1px;left:15px;width:2px;border-radius:2px;background:var(--line)}
+/* A finished stage's connector is green: the eye follows the coloured run to where work is now. */
+.progress-spine>li[data-status=done]:not(:last-child):before{background:#b9cdb0}
+.spine-marker{width:32px;height:32px;border:1.5px solid #d8dece;font-weight:700}
+.progress-spine>li[data-status=not_started] .spine-marker{border-style:dashed;background:transparent}
+.progress-spine>li[data-status=not_started] .spine-title{color:#7b8377;font-weight:400}
+.progress-spine>li[data-status=in_progress] .spine-marker{border-color:#5b7a4f;color:#3d5334}
+.progress-spine>li[data-status=waiting_on_client] .spine-marker{border-color:#c99a3d;color:#805c1f;background:#fdf7ea}
+.progress-spine>li[data-status=on_hold] .spine-marker{border-color:#b4a0b3;color:#6d566b}
+.progress-spine>li[data-status=done] .spine-title{color:#6b7367}
+.progress-spine>li[aria-current=step] .spine-marker{box-shadow:0 0 0 4px #edf2e7}
+.progress-spine>li[data-awaiting]{background:#fdf8ee;border-radius:10px;margin:6px 0 6px -8px;padding:8px 8px 12px 54px;box-shadow:inset 3px 0 0 #d9b874}
+.progress-spine>li[data-awaiting]:before{left:23px}
+.progress-spine>li[data-awaiting] .spine-marker{left:8px;top:8px}
+.spine-title{font-weight:600}
+.client-progress summary .approval-chip{order:2}
+.client-progress summary .track-status{order:3}
+.client-progress summary .progress-chevron{order:4}
+
+@media(max-width:1000px){
+ .track-editor>summary{gap:11px;padding-left:16px}
+ .track-edit-cue{display:none}
+}
+@media(max-width:820px){
+ .track-zone-grid{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+ .hint-bubble{max-width:min(280px,84vw)}
+ .track-stage-list::before{left:29px}
+ .track-editor>summary{flex-wrap:wrap;padding:14px}
+ .track-editor-title{flex-basis:calc(100% - 41px)}
+ .track-summary-side{flex-basis:100%;justify-content:flex-start;margin-left:41px}
+ .track-summary-side .track-status{margin-left:0}
+ .track-editor-body{padding:14px}
+ .track-zone{padding:14px}
+ .track-zone-head{align-items:start}
+ .track-editor-footer{align-items:start}
+ .approval-manager{padding:15px}
+ .approval-card{padding:16px}
+ .approval-card-heading{align-items:start}
+ .approval-facts{grid-template-columns:1fr;gap:10px;padding:12px 14px}
+ .approval-scope{padding:12px}
+ .approval-response{padding:14px}
+ .approval-buttons{flex-direction:column}
+ .approval-buttons .button{width:100%}
+ a.approval-source{width:100%;justify-content:center}
+ .progress-spine .approval-card{margin-left:-40px}
+ .progress-spine .approval-history .approval-card{margin-left:0}
+ .progress-spine>li[data-awaiting]{padding-left:48px;margin-left:-4px}
+ .progress-spine>li[data-awaiting] .approval-card{margin-left:-42px}
+ .progress-spine>li[data-awaiting]:before{left:17px}
+ .progress-spine>li[data-awaiting] .spine-marker{left:2px}
+ .track-overview{padding:14px}
+ .approval-attention{padding:12px 14px}
+}

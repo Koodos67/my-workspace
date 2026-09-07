@@ -4,6 +4,104 @@ Last updated: 7 September 2026. Read this file before continuing. It is the sing
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
 
+## Style handoff to Claude Opus 5 - 7 September 2026
+
+The user took over with Claude Opus 5 to make style changes, logged for the next Codex
+session. This section records the brief; the completed work is in "Style pass one" below.
+The release details further down describe the pre-style baseline.
+
+- Log the affected screens/files, visual decisions, checks and outstanding issues
+  here as the style work progresses, including whether it is local, committed or deployed.
+- Returning Codex sessions must read the style logs, recent commits and working-tree
+  diff before editing. Treat the resulting styling as the new baseline and preserve
+  it when continuing feature work; earlier design approvals are historical context.
+- Keep existing authentication, tenant isolation, private artifact sandboxing,
+  publishing and approval behavior intact during the style pass.
+- Record any intentional behavior changes separately so the next session can tell
+  them apart from presentation changes. Do not assume old test results validate new edits.
+
+## Style pass one — Claude Opus 5, 7 September 2026 (work tracks and approvals)
+
+The user asked for three things in one PR: differentiate work tracks in the admin client view
+(especially done and not-started), improve the layout inside a track with approvals in mind and
+tooltips where suitable, and take the same approach to the client view. All of it is presentation
+and copy. **No schema change, no server action changed, no change to auth, RLS, publication
+filtering, artifact sandboxing or the approval state machine.** Treat this styling as the baseline.
+
+### Affected files
+
+- New: `src/components/hint.tsx` (tooltip), `src/components/stage-progress.tsx` (segment strip).
+- Rewritten: `src/components/track-manager.tsx`, `src/components/client-progress.tsx`,
+  `src/components/approval-card.tsx`, `src/components/approval-manager.tsx`,
+  `src/components/approval-response.tsx`.
+- `src/lib/tracks.ts` gained presentation helpers only: `STATUS_TONE`, `statusHelp`, `daysSince`,
+  `sinceLabel`, `currentStageIndex`. No existing export changed.
+- `src/app/globals.css` gained one commented section at the end; the dead `.track-number` rule was
+  removed. Nothing else in the file was rewritten.
+
+### Design decisions
+
+- **One status vocabulary across both views.** A status decides a row's marker shape, its left
+  accent colour and how much the row recedes. Colour is never the only signal: done is a filled
+  green circle with a tick, not started is a dashed hollow ring on a dashed row, live work is a
+  solid ring on a white row. This is what separates done from not-started at a glance, which was
+  the specific complaint.
+- **A segment strip** (`StageProgress`) at the top of both views: one segment per delivery stage,
+  coloured by status, so the shape of a project reads before any row is opened.
+- **A connector rail** behind the admin stage rows, visible only in the gaps, so stages read as a
+  sequence rather than a flat list. The client spine's connector turns green under finished
+  stages so the eye follows the coloured run to where work actually is.
+- **Current versus up next.** The highlighted stage is flagged `Current` only when it has actually
+  started; otherwise it reads `Up next`, and the overview says "Up next" rather than "Now on".
+  A "Status changed …" line is suppressed on not-started stages, where seeding made it misleading.
+- **The track editor is zoned, not collapsed.** One form and one `updateTrack` action as before,
+  split visually into *Reporting · your client sees this* (status, client update, plus a line
+  showing the client-facing label, which differs from the admin one), *Stage setup*, and
+  *Approval checkpoint*, with the save button in a footer. It stays a single form deliberately —
+  and no `<details>` was added inside a track editor, because `tests/tracks.spec.ts:130` does
+  `research.locator('summary')` and a second summary there is a strict-mode violation.
+- **Approvals lead with what to do next.** The admin panel shows a state strip in plain words
+  ("Waiting on the client…", "A fresh request is needed…"). The card gained a facts grid
+  (deliverable, version), a button-styled review link, and, for a client with a decision to make,
+  an amber prompt and a highlighted stage in the spine with a "Your decision needed" chip and a
+  jump link from the banner at the top.
+- **A real duplication was removed.** The consent sentence was previously rendered both as the
+  card's authority line and as the checkbox label. It is now shown only when no response form is
+  present, so the reader parses that sentence once.
+- **Tooltips are `Hint`, not `title`.** Click toggles (touch), hover reveals (mouse),
+  `aria-describedby` carries the text to assistive technology, Escape and outside press close it.
+  They are used only where a consequence needs explaining: status meanings, what the client sees,
+  what plan versus launch approval does, what responding commits to.
+
+### Two traps worth knowing before editing these files again
+
+- **A hint button must sit outside its `<label>`.** A control nested in a label inherits that
+  label, so an icon button inside one starts answering to the field's accessible name and
+  `getByLabel('Client update')` resolves to the button. Hence the `.field` / `.field-label`
+  pattern rather than the plain `<label>` wrapper used elsewhere.
+- **A hidden tooltip must be `display:none`, not `visibility:hidden`.** A laid-out absolutely
+  positioned bubble widens the document's scroll area and fails the 390px overflow assertion in
+  all three suites. Hidden elements referenced by `aria-describedby` still supply their text.
+
+### Verification
+
+- TypeScript, the production build, and all three browser suites pass
+  (`approvals`, `content-delivery`, `tracks`), including their 390px horizontal-overflow
+  assertions and the "no page errors" checks. No test file was modified.
+- Element-scoped screenshots of the redesigned surfaces were captured from a temporary spec at
+  1280px and 390px and reviewed with the user, who approved them. That spec was deleted and its
+  development-database rows were removed; the leftover client and users are gone, confirmed by
+  count. Note the teardown order that circular foreign keys require: approval requests, then
+  `items.current_version_id` to null, then item versions, then items.
+
+### Status and what is not done
+
+- Shipped in one PR to `main` and deployed to production automatically. See "Current release".
+- The admin board (`/admin/board`) was deliberately left alone: it was not in scope and its
+  cards already differentiate by column. It now shares the status hues, so it stays coherent.
+- Performance optimisation remains deferred at the user's request. No dark mode work was done;
+  the app is a single committed light theme.
+
 ## Current release
 
 - Plan and Launch approvals shipped through PR #9, merged to main as `8f2efcb`.
@@ -422,9 +520,14 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Collect production feedback on Plan and Launch approval requests and client responses.
-2. The older admin layout and HTML rendering are approved; do not ask for that approval again.
-3. Follow the remaining-work list above for future scope. Individual tasks remain future work;
+1. The first style pass is done, merged and deployed — see "Style pass one" above for the files,
+   the decisions and the two traps in those components. That styling is the baseline: preserve it,
+   and do not restore the pre-style layout to match older session notes.
+2. Collect production feedback on Plan and Launch approval requests and client responses,
+   and on whether the new stage differentiation reads correctly with real client data.
+3. The older admin layout and HTML rendering are approved; do not ask for that approval again.
+   Subsequent user-directed style changes supersede the older visual baseline.
+4. Follow the remaining-work list above for future scope. Individual tasks remain future work;
    performance optimisation is deliberately deferred at the user's request.
 
 The agreed reporting plan has no open design questions. Keep this file current as work progresses.

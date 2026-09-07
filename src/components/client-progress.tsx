@@ -1,6 +1,8 @@
 import { Check, ChevronDown, Repeat2 } from 'lucide-react';
 import { TrackStatusBadge } from './track-status';
-import { trackDate, type Track } from '@/lib/tracks';
+import { Hint } from './hint';
+import { StageProgress } from './stage-progress';
+import { currentStageIndex, trackDate, type Track } from '@/lib/tracks';
 import { ApprovalCard } from './approval-card';
 import { approvalLabels, type Approval } from '@/lib/approvals';
 
@@ -23,23 +25,49 @@ export function ClientProgress({ tracks, folders, approvals, canRespond }: { tra
   const current = stages.findIndex(track => track.status !== 'done' && track.status !== 'not_started');
   const allDone = stages.length > 0 && completed === stages.length;
   const started = stages.some(track => track.status !== 'not_started');
-  const focus = current >= 0 ? current : stages.findIndex(track => track.status !== 'done');
+  const focus = currentStageIndex(stages);
   const pendingApprovals = approvals.filter(approval => approval.state === 'pending');
+  const latestFor = (trackId: string) => approvals.find(approval => approval.track_id === trackId);
   return <section className="client-progress" aria-labelledby="progress-title">
-    <div className="progress-heading"><div><div className="eyebrow">Our work together</div><h2 id="progress-title">Where things stand</h2></div>{stages.length > 0 && <span className="progress-count">{completed} of {stages.length} stages complete</span>}</div>
-    {pendingApprovals.length>0 && <p className="approval-attention">{pendingApprovals.length === 1 ? 'There is an approval request' : `There are ${pendingApprovals.length} approval requests`} for you to review below.</p>}
+    <div className="progress-heading">
+      <div className="progress-heading-title"><div className="eyebrow">Our work together</div>
+        <h2 id="progress-title">Where things stand</h2>
+        <Hint label="this progress view">
+          Every project runs through the same stages. We update them as we go, so this is always
+          the current picture. A stage flagged for you is one where we need something back before
+          we can carry on — open it to see what.
+        </Hint></div>
+      {stages.length > 0 && <span className="progress-count">{completed} of {stages.length} stages complete</span>}
+    </div>
+    {stages.length > 0 && <StageProgress stages={stages} />}
+    {pendingApprovals.length>0 && <div className="approval-attention">
+      <p>{pendingApprovals.length === 1 ? 'There is an approval request for you to review below.' : `There are ${pendingApprovals.length} approval requests for you to review below.`}</p>
+      <div className="approval-attention-links">{pendingApprovals.map(approval => {
+        const track = tracks.find(item => item.id === approval.track_id);
+        return track ? <a key={approval.id} href={'#stage-'+track.id}>{track.name} <span aria-hidden="true">↓</span></a> : null;
+      })}</div>
+    </div>}
     {stages.length > 0 && <>
       <p className="progress-current">{allDone ? 'Delivery complete.' : !started ? 'Ready when you are.' : current >= 0 ? `Stage ${current + 1} of ${stages.length} · ${stages[current].name}` : `Up next · ${stages[focus].name}`}</p>
-      <ol className="progress-spine">{stages.map((track, index) => <li key={track.id} data-status={track.status} aria-current={index === current ? 'step' : undefined}>
-        <span className="spine-marker" aria-hidden="true">{track.status === 'done' ? <Check size={16} /> : String(index + 1).padStart(2, '0')}</span>
-        <details open={index === focus || approvals.some(approval => approval.track_id === track.id)}>
-          <summary><span className="spine-title">{track.name}</span><TrackStatusBadge status={track.status} client /><ChevronDown className="progress-chevron" size={16} aria-hidden="true" /></summary>
-          <TrackDetail track={track} folders={folders} />
-          {approvals.filter(approval => approval.track_id === track.id).slice(0,1).map(approval => <ApprovalCard key={approval.id} approval={approval} canRespond={canRespond} />)}
-          {approvals.filter(approval => approval.track_id === track.id).length>1 && <details className="approval-history"><summary>Approval history</summary>{approvals.filter(approval => approval.track_id === track.id).slice(1).map(approval => <ApprovalCard key={approval.id} approval={approval} history />)}</details>}
-        </details>
-        {approvals.find(approval => approval.track_id === track.id) && <p className="approval-spine-status">{approvalLabels[approvals.find(approval => approval.track_id === track.id)!.state]}</p>}
-      </li>)}</ol>
+      <ol className="progress-spine">{stages.map((track, index) => {
+        const approval = latestFor(track.id);
+        const awaiting = approval?.state === 'pending';
+        return <li key={track.id} id={'stage-'+track.id} data-status={track.status} data-current={index === current || undefined}
+          data-awaiting={awaiting || undefined} aria-current={index === current ? 'step' : undefined}>
+          <span className="spine-marker" aria-hidden="true">{track.status === 'done' ? <Check size={16} strokeWidth={3} /> : String(index + 1).padStart(2, '0')}</span>
+          <details open={index === focus || approvals.some(item => item.track_id === track.id)}>
+            <summary>
+              <span className="spine-title">{track.name}</span>
+              {approval && <span className="approval-chip" data-state={approval.state}>{awaiting ? 'Your decision needed' : approvalLabels[approval.state]}</span>}
+              <TrackStatusBadge status={track.status} client />
+              <ChevronDown className="progress-chevron" size={16} aria-hidden="true" />
+            </summary>
+            <TrackDetail track={track} folders={folders} />
+            {approvals.filter(item => item.track_id === track.id).slice(0,1).map(item => <ApprovalCard key={item.id} approval={item} canRespond={canRespond} />)}
+            {approvals.filter(item => item.track_id === track.id).length>1 && <details className="approval-history"><summary>Approval history</summary>{approvals.filter(item => item.track_id === track.id).slice(1).map(item => <ApprovalCard key={item.id} approval={item} history />)}</details>}
+          </details>
+        </li>;
+      })}</ol>
     </>}
     {ongoing.length > 0 && <div className="client-ongoing"><div className="eyebrow"><Repeat2 size={15} aria-hidden="true" /> Ongoing care</div>{ongoing.map(track => <details key={track.id} open={track.status !== 'not_started'}><summary><span className="spine-title">{track.name}</span><TrackStatusBadge status={track.status} client /><ChevronDown className="progress-chevron" size={16} aria-hidden="true" /></summary><TrackDetail track={track} folders={folders} /></details>)}</div>}
   </section>;
