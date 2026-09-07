@@ -27,9 +27,11 @@ a verified Resend sending domain. Request a login link from the login screen.
 
 - /login — invite-only email magic links
 - /admin — create clients and list active workspaces
+- /admin/board — cross-client delivery reporting, live-work filters and ongoing services
 - /admin/clients/[id] — folders, keyboard reorder, invitations, access revocation, archive
 - /workspaces — role routing and client chooser
 - /c/[slug] — authenticated client workspace and folders
+- Client workspaces include six delivery stages and a separate ongoing-service panel.
 - /preview — clearly labelled design preview with sample content
 
 ## Security foundation
@@ -67,6 +69,17 @@ it does not verify real email sign-in.
 Still pending: real email sign-in verification, complete client branding controls,
 comments, acknowledgements, inbox and exports. Comments and acknowledgements are
 schema foundations only, without a write path or UI.
+
+Work tracks are implemented: editable standard stages, client-facing status notes,
+folder assignment, derived published-deliverable counts, and an admin board. Apply
+`004_tracks.sql` before deploying this release. It seeds seven tracks for existing
+clients without inferring their progress or assigning their folders; new clients
+receive the same defaults in the client-creation transaction. Status and note changes
+appear to clients immediately. Archiving a track hides its reporting only.
+
+`tests/tracks.spec.ts` verifies the reporting workflow and responsive views with temporary
+development fixtures. `test:rls` explicitly loads development settings and refuses the
+production database.
 
 Archive currently hides an item; it does not permanently delete its files or version
 history. All saved versions are retained. Abandoned uploads can leave unreferenced

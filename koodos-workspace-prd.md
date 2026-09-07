@@ -233,12 +233,42 @@ Notes:
 
 ---
 
-## 11. Designed for v2 — tasks and kanban
+## 11. Work tracks and future tasks
+
+### Delivery reporting
+
+Work tracks are client delivery phases above folders. Admins manage status and a short
+client-facing update; published item counts and last-updated dates are derived from linked,
+active folders. Tracks do not replace the filing structure or individual tasks.
+
+New and existing clients receive Discovery (Written brief), Research (Research pack),
+Plan (Plan for approval), Build (Staging site), Review (Change log), Launch (Live site and
+keys), and Operate (Quarterly report). Names, descriptions, expected deliverables and order
+are editable per client. Initial statuses are Not started; existing work is not guessed.
+
+- Clients see a six-stage progress spine with expandable descriptions, deliverables and dated
+  updates. Operate uses an explicit recurring flag and appears in a separate ongoing panel.
+- The admin client page supports creating, editing, reordering, archiving and restoring tracks,
+  and assigning each folder to an optional track. Archiving a track leaves its content visible.
+- `/admin/board` reports across clients with URL-based client chips. Live statuses are shown by
+  default; `?show=all` includes Not started and Done. Every card has a status selector as well as
+  drag. Recurring services appear in an Ongoing strip outside the columns.
+- Statuses: `not_started`, `in_progress`, `waiting_on_client`, `on_hold`, `done`.
+  Waiting on client reads “Waiting on you” in the client view.
+- Status and note timestamps are maintained independently by a database trigger. The board
+  shows status age. Counts never include drafts, archived items or archived folders.
+- Membership RLS protects tracks; a composite folder/track FK prevents cross-client assignment.
+  Admin status and note changes are visible immediately; content still requires explicit publication.
+- Tasks, requests, assignees, deadlines, comments, notifications and a Needs attention filter
+  are outside this release.
+
+### Future task management
 
 Not built now. The model below is recorded so v1 does not foreclose it.
 
 ```
 tasks       id · client_id · title · description · status · position
+            · track_id (nullable, links an individual task to a delivery phase)
             · assignee('koodos'|'client') · created_by → profiles
             · due_date · item_id (nullable, links a task to a deliverable)
             · created_at · completed_at
