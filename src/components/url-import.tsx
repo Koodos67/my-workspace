@@ -21,13 +21,22 @@ export function UrlImport({ clientId, folders = [], itemId, folderId = '', nonce
   const document_ = useMemo(() => staged ? toSandboxDocument(staged.html, nonce) : '', [staged, nonce]);
 
   // What the sandbox will and will not honour, so the admin sees the caveats before saving.
+  // Anything not already inline is external once stored: the document ends up on an opaque
+  // origin with no base URL, so a relative path is just as unreachable as an absolute one.
   const analysis = useMemo(() => {
     if (!staged) return null;
     const doc = new DOMParser().parseFromString(staged.html, 'text/html');
-    const external = (selector: string, attribute: string) => Array.from(doc.querySelectorAll(selector))
-      .filter(element => /^(https?:)?\/\//i.test(element.getAttribute(attribute) || '')).length;
-    const remote = external('script[src]', 'src') + external('link[rel~="stylesheet"]', 'href') + external('img[src]', 'src');
-    return { remote, inlineScripts: doc.querySelectorAll('script:not([src])').length, text: (doc.body?.textContent || '').trim().length };
+    const count = (selector: string, attribute: string) => Array.from(doc.querySelectorAll(selector))
+      .filter(element => {
+        const value = (element.getAttribute(attribute) || '').trim();
+        return value !== '' && !value.startsWith('data:') && !value.startsWith('blob:') && !value.startsWith('#');
+      }).length;
+    return {
+      scripts: count('script[src]', 'src') + count('link[rel~="modulepreload"]', 'href'),
+      styles: count('link[rel~="stylesheet"]', 'href'),
+      media: count('img[src]', 'src') + count('link[rel~="preload"][as="font"]', 'href'),
+      text: (doc.body?.textContent || '').trim().length,
+    };
   }, [staged]);
 
   async function preview(event: React.FormEvent) {
@@ -113,14 +122,26 @@ export function UrlImport({ clientId, folders = [], itemId, folderId = '', nonce
         </div>
       </div>
 
-      {analysis && analysis.text < 40 && analysis.inlineScripts > 0 && <p className="notice warn" role="status">
-        <CircleAlert size={15} aria-hidden="true" /> This page has almost no text of its own and builds itself with
-        JavaScript. It may appear blank to the client. Check the preview below before saving.
+      {analysis && analysis.scripts > 0 && <p className="notice stop" role="status">
+        <CircleAlert size={16} aria-hidden="true" /> <span>
+          <strong>This page will not work as an artifact.</strong> It loads its code from {analysis.scripts} separate
+          {analysis.scripts === 1 ? ' file' : ' files'}, and an artifact is a single stored document — those files
+          cannot come with it, so the page has nothing to run. This is what a share link for an app-rendered page
+          looks like. Export or download the artifact as a <strong>self-contained HTML file</strong> and upload that
+          instead.
+        </span>
       </p>}
-      {analysis && analysis.remote > 0 && <p className="notice warn" role="status">
-        <CircleAlert size={15} aria-hidden="true" /> {analysis.remote} external resource{analysis.remote === 1 ? '' : 's'}
-        {' '}(scripts, stylesheets or images from other addresses) will not load in the sandbox. Only a self-contained
-        page renders exactly as it does at its original address.
+      {analysis && analysis.scripts === 0 && analysis.text < 40 && <p className="notice warn" role="status">
+        <CircleAlert size={16} aria-hidden="true" /> <span>This page has almost no text of its own, so it may appear
+        blank to the client. Check the preview below before saving.</span>
+      </p>}
+      {analysis && (analysis.styles > 0 || analysis.media > 0) && <p className="notice warn" role="status">
+        <CircleAlert size={16} aria-hidden="true" /> <span>
+          {analysis.styles > 0 && `${analysis.styles} stylesheet${analysis.styles === 1 ? '' : 's'}`}
+          {analysis.styles > 0 && analysis.media > 0 && ' and '}
+          {analysis.media > 0 && `${analysis.media} image or font file${analysis.media === 1 ? '' : 's'}`}
+          {' '}will not load in the sandbox, so the styling may differ from the original page.
+        </span>
       </p>}
 
       <p className="muted">This is the client&apos;s view, in the same sandbox they get:</p>

@@ -141,6 +141,8 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eef1e7;paddin
 .import-preview-head p{margin:6px 0 0;font-size:12px;overflow-wrap:anywhere}
 .import-preview-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .import-preview .notice{display:flex;align-items:start;gap:9px;margin-top:16px;font-size:13px;line-height:1.55}
+.notice.stop{background:#f8ece9;color:#7a2f22;border-left:4px solid #a8402c}
+.notice.stop strong{color:#61241a}
 .import-preview>.muted{margin:18px 0 9px;font-size:12px}
 .import-preview .artifact-frame{height:52vh;min-height:340px;background:#fff}
 @media(max-width:700px){
