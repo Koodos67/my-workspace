@@ -81,6 +81,13 @@ appear to clients immediately. Archiving a track hides its reporting only.
 development fixtures. `test:rls` explicitly loads development settings and refuses the
 production database.
 
+Plan and Launch checkpoints support explicit approval requests, client approval or requests
+for changes, and immutable response history. Plan requests pin an uploaded document version;
+Launch requests capture a staging release and the planned launch/DNS scope. Approval records
+permission and leaves track status and launch operations under manual control. Apply migration
+`005_approvals.sql` before deploying this feature. Run `npm run test:approvals` for database
+permission/record tests and `tests/approvals.spec.ts` for the browser workflow.
+
 Archive currently hides an item; it does not permanently delete its files or version
 history. All saved versions are retained. Abandoned uploads can leave unreferenced
 blobs; automated orphan cleanup and a permanent-deletion/retention policy remain pending.

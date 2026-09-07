@@ -262,6 +262,30 @@ are editable per client. Initial statuses are Not started; existing work is not 
 - Tasks, requests, assignees, deadlines, comments, notifications and a Needs attention filter
   are outside this release.
 
+### Plan and Launch approval checkpoints
+
+Plan approval authorises starting the build against a specific uploaded plan version.
+Launch approval authorises going live, including the described DNS changes and switching
+traffic to the reviewed site. It is permission before launch, not acceptance afterwards.
+
+- The admin explicitly issues each request from the Plan or Launch track. The checkpoint
+  type is stored independently of the track name and can be configured on a renamed stage.
+- A request captures published content, the uploaded version (required for Plan), a release
+  label, scope, the approval wording and request time. Launch may reference a published
+  staging link; the admin must identify a fixed preview URL or release reference and request
+  fresh approval if external staging content changes.
+- Active client members choose Approve or Request changes with an optional comment. Approval
+  requires an explicit confirmation. Admins cannot respond on behalf of a client.
+- The first response closes a request. Identity, name, email, time, decision and comment are
+  recorded from the authenticated session and database profile. Requests and responses cannot
+  be rewritten or deleted by the application role.
+- Replacing a file version or editing a staging link invalidates its approval. New requests
+  supersede old ones; the admin can withdraw a request or permission. Earlier responses remain
+  visible in the history. Unpublished, archived or inaccessible sources cannot be approved.
+- Track statuses remain manual reporting. Approval records permission; it does not start builds,
+  launch a site, modify DNS or automatically complete the Launch stage.
+- No email notifications, reminders or designated-approver roles in this release.
+
 ### Future task management
 
 Not built now. The model below is recorded so v1 does not foreclose it.

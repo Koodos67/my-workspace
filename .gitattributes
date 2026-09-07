@@ -1,2 +1,3 @@
 # Preserve the new migration checksum across Windows checkouts and deployment.
 database/migrations/004_tracks.sql text eol=lf
+database/migrations/005_approvals.sql text eol=lf

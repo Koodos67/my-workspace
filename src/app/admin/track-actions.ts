@@ -31,12 +31,15 @@ export async function createTrack(clientId: string, form: FormData) {
 export async function updateTrack(clientId: string, trackId: string, form: FormData) {
   const { profile } = await requireAdmin();
   const status = statusField(form.get('status'));
+  const approvalKind = textField(form, 'approval_kind', 10, true) || null;
+  if (approvalKind && !['plan','launch'].includes(approvalKind)) throw new Error('Choose a valid approval checkpoint.');
+  if (approvalKind && form.get('recurring') === 'on') throw new Error('Approval checkpoints are delivery stages.');
   await withActor(profile.id, async db => {
     await activeClient(db, clientId);
     const result = await db.query(`UPDATE tracks SET name=$1,summary=$2,deliverable=$3,
-      recurring=$4,status=$5,status_note=$6 WHERE id=$7 AND client_id=$8 AND archived_at IS NULL`,
+      recurring=$4,status=$5,status_note=$6,approval_kind=$9 WHERE id=$7 AND client_id=$8 AND archived_at IS NULL`,
       [textField(form, 'name', 120), textField(form, 'summary', 500, true), textField(form, 'deliverable', 120, true),
-        form.get('recurring') === 'on', status, textField(form, 'status_note', 500, true), trackId, clientId]);
+        form.get('recurring') === 'on', status, textField(form, 'status_note', 500, true), trackId, clientId, approvalKind]);
     if (!result.rowCount) throw new Error('Track unavailable.');
   });
   refresh(clientId);

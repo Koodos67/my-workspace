@@ -4,8 +4,9 @@ import { DEFAULT_TRACKS, type Track } from './tracks';
 
 export async function seedTracks(db: PoolClient, clientId: string) {
   for (const [index, track] of DEFAULT_TRACKS.entries()) {
-    await db.query('INSERT INTO tracks(client_id,name,summary,deliverable,position,recurring) VALUES($1,$2,$3,$4,$5,$6)',
-      [clientId, track.name, track.summary, track.deliverable, (index + 1) * 1000, track.recurring]);
+    await db.query('INSERT INTO tracks(client_id,name,summary,deliverable,position,recurring,approval_kind) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [clientId, track.name, track.summary, track.deliverable, (index + 1) * 1000, track.recurring,
+        track.approval_kind || null]);
   }
 }
 

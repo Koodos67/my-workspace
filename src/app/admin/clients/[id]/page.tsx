@@ -14,6 +14,7 @@ import { UploadPanel } from '@/components/upload-panel';
 import { FolderControls } from '@/components/folder-controls';
 import { TrackManager } from '@/components/track-manager';
 import { readTracks } from '@/lib/track-data';
+import { readApprovals } from '@/lib/approval-data';
 import { ItemIcon, itemTypeLabel } from '@/components/item-icon';
 import { archiveClient, createFolder, inviteMember, revokeMember, updateClient, restoreFolder } from '../../actions';
 import { createLink, editItem, archiveItem, moveItem } from '../../content-actions';
@@ -33,13 +34,14 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
     if (!client) return null;
     const folders = (await db.query('SELECT id,name,archived_at,track_id FROM folders WHERE client_id=$1 ORDER BY position,created_at,id',[id])).rows;
     const tracks = await readTracks(db, id, true);
+    const approvals = await readApprovals(db, id);
     const members = (await db.query('SELECT p.id,p.full_name,p.email,p.last_seen_at,m.invited_at,m.first_seen_at FROM memberships m JOIN profiles p ON p.id=m.profile_id WHERE m.client_id=$1 ORDER BY m.invited_at',[id])).rows;
     const items = (await db.query(
-      `SELECT i.*,
+      `SELECT i.*, i.published_at<=now() AS is_published_now,
         (SELECT count(*) FROM item_versions v WHERE v.item_id=i.id) AS versions,
         (SELECT v.mime_type FROM item_versions v WHERE v.id=i.current_version_id) AS mime
        FROM items i WHERE client_id=$1 ORDER BY position,created_at,id`,[id])).rows;
-    return {client,folders,members,items,tracks};
+    return {client,folders,members,items,tracks,approvals};
   });
   if (!data) notFound();
 
@@ -64,7 +66,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
       <a href="#tracks">Work tracks</a><a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a>
     </nav>
 
-    <TrackManager clientId={id} slug={data.client.slug} tracks={data.tracks} />
+    <TrackManager clientId={id} slug={data.client.slug} tracks={data.tracks} approvals={data.approvals} approvalItems={live.filter(item => item.is_published_now && (!item.folder_id || folders.some(folder => folder.id===item.folder_id))).map(item=>({id:item.id,title:item.title,type:item.type,current_version_id:item.current_version_id}))} />
 
     <section id="content" className="form-panel">
       <h2>Add content</h2>
