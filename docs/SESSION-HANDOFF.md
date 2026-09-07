@@ -132,50 +132,49 @@ nobody spends the time again.
   CSP, so a fresh nonce would stop inline scripts in the sandbox from running at all. If this
   design is ever changed, verify both inline execution and parent isolation.
 
-## Proposed next feature — ingest an artifact from its public URL
+## URL artifact import — built, PR #3
 
-Requested 6 September. Paste the public share URL of a single-page artifact and store it
-exactly as an uploaded one, instead of downloading and re-uploading it by hand.
+Paste the public URL of a single-page artifact and it is stored exactly like an upload.
+Available in Add content → "Import an artifact from a URL", and inside any artifact item as
+"Replace from a URL" to take a new version from the same source.
 
-**Verdict: easy for the happy path.** The plumbing is genuinely small — smaller than the
-upload path, because the fetch happens on the server and so needs no signed ticket and no
-Blob client token. Roughly 80 lines in `src/app/admin/content-actions.ts` plus a form and a
-test. Reuse `webUrl()` for validation, then:
+**How it works.** `importFromUrl` fetches server-side, stages the bytes in private Blob at the
+normal pathname, and returns a signed `UploadTicket` plus the HTML. Nothing touches the
+database at that point. Confirming calls the existing `finishUpload` with that receipt, so the
+import reuses the audited commit path verbatim — `head()` verification, idempotency on
+`versionId`, the same three writes. Discarding calls `discardImport`, which deletes the staged
+blob unless a version row already exists, so a discard leaves no orphan. Provenance goes into
+`item_versions.version_note` as `Imported from <final URL>`; no migration was needed.
 
-1. `requireAdmin()`, validate the URL.
-2. Fetch server-side with an `AbortSignal` timeout and a hard read cap at `MAX_UPLOAD`
-   (check `content-length`, then still cap while reading — do not buffer unbounded).
-3. Require a `text/html` response; extract `<title>` for the item title (server-side, so a
-   regex rather than `DOMParser`).
-4. Server-side `put()` from `@vercel/blob` with `access:'private'` and the existing pathname
-   convention `${env}/${clientId}/${itemId}/${versionId}/${filename}`.
-5. The same DB writes `finishUpload` already performs: insert the item (or reuse it for a
-   replacement), insert the `item_version`, update `current_version_id`, then `refresh()`.
+**The SSRF guard** lives in `src/lib/address-guard.ts` (pure predicates) and
+`src/lib/safe-fetch.ts` (the network side).
 
-Because versioning already exists, "re-fetch this URL as a new version" is a natural
-follow-up that costs almost nothing once step 1 works.
+- Blocks loopback, private, link-local (including the 169.254.169.254 metadata address),
+  CGNAT, benchmarking, documentation, multicast and reserved ranges, in IPv4 and IPv6, and
+  unwraps IPv4-mapped, IPv4-compatible and NAT64 addresses so they cannot be used to smuggle a
+  blocked v4 address through a v6 literal. Unparseable input is blocked, not allowed.
+- Only http and https, only ports 80 and 443, no credentials in the URL.
+- **The boundary is a connect-time `lookup` hook**, not a resolve-then-fetch check: only
+  addresses that passed validation are handed back to the socket, so the connection cannot be
+  pointed somewhere else after the check. That is what closes DNS rebinding. The pre-flight
+  resolve in `fetchGuardedDocument` exists only to produce a clear error message and is not
+  the security control — do not remove the lookup hook and keep the pre-flight.
+- Every redirect hop is re-validated, capped at 3. `accept-encoding: identity` so the 25 MB cap
+  cannot be defeated by a compression bomb. Response must be `text/html`, capped while
+  streaming rather than after buffering.
 
-**What actually takes the time — two things, not the plumbing:**
+**Fidelity is surfaced, not hidden.** The preview renders the fetched HTML in the same sandbox
+the client gets, and warns when the page pulls scripts, stylesheets or images from other
+addresses (they will not load), and when the page has almost no text of its own and builds
+itself with JavaScript (the client may see a blank page). The admin decides before saving.
 
-- **SSRF.** This is a server-side fetch of a user-supplied URL, so it needs a real guard:
-  block private and link-local ranges (127.0.0.0/8, 10/8, 172.16/12, 192.168/16, the
-  169.254.169.254 metadata address, ::1, fc00::/7), cap redirects, and re-check the
-  *resolved* address after every hop rather than trusting the hostname, or DNS rebinding
-  walks straight through it. `webUrl()` already rejects non-http(s) schemes and embedded
-  credentials, so that part is done.
-- **Fidelity, which is a product question.** It works perfectly for a self-contained
-  single-file HTML artifact, which is the common case for a shared artifact URL. It degrades
-  for a page whose CSS, JS or images live at other URLs — though note those subresources were
-  never going to load anyway, since the viewer strips external scripts and injects
-  `default-src 'none'`. It produces a blank page for a client-rendered SPA whose HTML is an
-  empty shell. So the import should show a preview before saving, so the admin sees exactly
-  what the client will see rather than discovering it later.
+Coverage: `tests/address-guard.spec.ts` is a browser-free table test over the address and URL
+predicates. `tests/content-delivery.spec.ts` drives the UI through six refusals and then a real
+import of `https://example.com/`, asserting nothing is written before confirmation and that the
+saved item is a draft artifact with `text/html` and the provenance note.
 
-Provenance is worth keeping: the source URL fits in the existing `item_versions.version_note`
-with no migration, or a dedicated `source_url` column if it deserves one.
-
-Estimate: an afternoon for the happy path; about a day with the SSRF guard and
-preview-before-save, which are both needed before it goes near production.
+Known gap: the title comes from the fetched `<title>` and cannot be edited in the preview —
+rename after saving via the normal item edit form.
 
 ## Remaining work and constraints
 
