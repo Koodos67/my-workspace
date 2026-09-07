@@ -6,6 +6,7 @@ import { Shell } from '@/components/shell';
 import { BackLink } from '@/components/back-link';
 import { ClientProgress } from '@/components/client-progress';
 import { readTracks } from '@/lib/track-data';
+import { readApprovals } from '@/lib/approval-data';
 export const dynamic = 'force-dynamic';
 export default async function ClientWorkspace({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -15,8 +16,9 @@ export default async function ClientWorkspace({ params }: { params: Promise<{ sl
     if (!client) return null;
     const folders = (await db.query('SELECT id,name,track_id FROM folders WHERE client_id=$1 AND archived_at IS NULL ORDER BY position,created_at,id',[client.id])).rows;
     const tracks = await readTracks(db, client.id);
+    const approvals = await readApprovals(db, client.id);
     const items = (await db.query('SELECT id,folder_id,title,description,type,url,published_at,updated_at FROM items WHERE client_id=$1 AND archived_at IS NULL AND published_at IS NOT NULL AND published_at<=now() ORDER BY position,created_at,id',[client.id])).rows;
-    return {client,folders,items,tracks};
+    return {client,folders,items,tracks,approvals};
   });
   if (!data) notFound();
   const {client,folders,items,tracks}=data;
@@ -24,7 +26,7 @@ export default async function ClientWorkspace({ params }: { params: Promise<{ sl
     <BackLink href={profile.role==='admin' ? '/admin/clients/'+client.id : '/workspaces?all=1'}>{profile.role==='admin' ? 'Back to manage workspace' : 'Back to all workspaces'}</BackLink>
     <div className="workspace-brand" style={{borderColor:client.accent_color || '#354c37'}}><div className="eyebrow">{client.name} × KOODOS</div><h1>Your work has a home.</h1><p className="muted">The things we’re making together, all in one place.</p></div>
     {profile.role==='admin' && <p><Link className="button secondary" href={'/admin/clients/'+client.id}>Manage workspace</Link> <span className="muted">This view shows published content only.</span></p>}
-    <ClientProgress tracks={tracks} folders={folders.map(folder => ({id:folder.id,name:folder.name,track_id:folder.track_id}))} />
+    <ClientProgress tracks={tracks} folders={folders.map(folder => ({id:folder.id,name:folder.name,track_id:folder.track_id}))} approvals={data.approvals} canRespond={profile.role==='client'} />
     {[{id:null,name:'Start here',track_id:null},...folders].map(folder=>{
       const content=items.filter(item=>item.folder_id===folder.id);
       if(!folder.id && !content.length)return null;

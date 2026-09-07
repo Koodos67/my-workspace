@@ -28,6 +28,52 @@ They explicitly authorised building the agreed work tracks and client view using
 design language, and progressing the release to main for production magic-link testing.
 Keep updates brief. No further approval is needed for this release.
 
+## Plan and Launch approvals — implemented 7 September
+
+The user approved adding two explicit checkpoints: approval of a specific Plan deliverable
+before Build, and permission to launch including DNS changes and switching traffic. Launch
+approval is before going live, not retrospective acceptance. The user approved the tracks UI
+and asked to defer performance optimisation until more features are in place.
+
+- Admins explicitly request approval from the Plan/Launch track, choosing published content,
+  a version/release label and scope. Plan requires an uploaded versioned document or artifact.
+  Launch can reference a published staging link or uploaded launch document. A link requires
+  a fixed preview URL or release reference; external site changes cannot be detected by the
+  portal, so the admin must request fresh consent when that site changes.
+- Migration 005 adds explicit tracks.approval_kind and enables it for existing tracks named
+  Plan/Launch. New-client defaults seed these flags. Renaming does not change the flag, and
+  admins can configure it for renamed/custom stages through the track form.
+- Each request snapshots the file version, source title/URL, release label, scope and approval
+  wording. The client reviews a link pinned to the requested uploaded version.
+- Active client members can approve or request changes with an optional comment. Approval
+  requires an explicit checkbox; the first response closes the request. No designated approver
+  roles in this cut. Admins cannot approve on behalf of clients.
+- Name, email, profile identity, decision, comment and timestamp are recorded from trusted
+  database/session data. The application role has SELECT only on approval_requests. Narrow
+  security-definer functions with empty search_path perform the validated mutations.
+- Request/response snapshots cannot be edited or deleted through the application role.
+  Withdrawals and new requests retain history; new requests supersede earlier permission.
+  Replacing a file version or editing a staging link permanently invalidates its old request.
+  Archived, unpublished, changed or inaccessible sources cannot be approved.
+- Client and admin views show receipts, stale requests and earlier history. Pending requests
+  are called out above the client spine; admin track summaries show approval status.
+- Approval is evidence of permission, separate from manual track status reporting. It does
+  not automatically start Build, complete Launch, deploy anything or change DNS. No email
+  notifications or reminders have been added.
+- Browser testing found clock skew in a JavaScript publication-date check. Approval source
+  eligibility now uses the same database clock as publishing/RLS. Approval receipts stay
+  expanded after a response so clients immediately see the recorded result.
+- Tests: test:approvals covers immutable records, tenant isolation, client-only responses,
+  source validation, response ownership, superseding, replacement invalidation, withdrawal
+  and revocation in a rolled-back development transaction. The approvals browser suite covers
+  a real uploaded Plan version, pinned review, consent validation, recorded identity/comment,
+  replacement, changes requested, explicit DNS scope, stale-tab withdrawal and mobile views.
+  Existing content-delivery and work-tracks suites pass. Screenshots reviewed at desktop/390px.
+- Final verification: all three browser suites, test:approvals, test:rls and the production
+  build pass. Migration 005 was rehearsed and rolled back against production, then applied:
+  two Plan and two Launch checkpoints enabled. No requests or responses were created for
+  real clients. The migration's LF line endings are pinned for checksum consistency.
+
 ## Work tracks and admin board — implemented 7 September
 
 The agreed reporting feature is built. This is delivery reporting, not task management.
@@ -373,8 +419,9 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Collect production feedback on the work tracks, client progress spine and admin board.
+1. Collect production feedback on Plan and Launch approval requests and client responses.
 2. The older admin layout and HTML rendering are approved; do not ask for that approval again.
-3. Follow the remaining-work list above for future scope. Individual tasks remain future work.
+3. Follow the remaining-work list above for future scope. Individual tasks remain future work;
+   performance optimisation is deliberately deferred at the user's request.
 
 The agreed reporting plan has no open design questions. Keep this file current as work progresses.
