@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 6 September 2026. Read this file before continuing. It is the single
+Last updated: 7 September 2026. Read this file before continuing. It is the single
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
 
@@ -9,17 +9,23 @@ in here and deleted.
 - Production: https://portal.getkoodos.com (also https://my-workspace-beta-jet.vercel.app).
 - Content delivery and real branding shipped in commit `e0111e3` on `main`.
 - Publishing and navigation improvements shipped through PR #1, merged as `5d51e6f`.
-- Admin client layout rework shipped through PR #2:
-  https://github.com/Koodos67/my-workspace/pull/2
-- Latest production deployment `my-workspace-idkhz7sl3` is Ready and aliased to the
-  production portal; the new stylesheet is confirmed live.
+- Admin client layout rework shipped through PR #2, merged as `d44efcf`.
+- URL artifact import shipped through PR #3 and was removed again the same day — see below.
+- PR #4 fixed the artifact font CSP; PR #5 moved artifacts onto their own served policy,
+  merged as `4d9c9f7`; PR #6 refused viewer-page imports, merged as `b3358b0`.
+- Latest production deployment `my-workspace-cycvvbky7` is Ready and aliased to the
+  production portal.
 - The user tests through production because their magic links return there, and because
   the ShipStudio preview cannot hold an authenticated session. Ship to production for review.
 
 ## Awaiting user review
 
-PR #2 (admin client layout) is live but the user has not yet reviewed it in production.
-Start the next session by asking for that feedback before building on this layout.
+The admin client layout (PR #2) and the artifact policy change (PR #5) are both live but have
+not been reviewed in production. The user has confirmed archiving the broken imported artifacts.
+Ask for feedback on the layout before building further on it.
+
+The removal of URL import is committed on the local branch `chore/remove-url-import` and is
+**deliberately unpushed** at the user's request. Confirm before pushing or merging it.
 
 ## Completed 6 September — session two (admin client layout)
 
@@ -115,9 +121,11 @@ These are load-bearing. Preserve their properties in any future change.
   verified with a length pre-check then `timingSafeEqual`; a Blob client token scoped to one
   pathname with `allowOverwrite:false`; server-side `head()` re-verification before any DB
   write; `finishUpload` idempotent on `versionId`. Delivery is a 60-second presigned URL.
-- **Artifact sandbox.** `srcDoc` plus `sandbox="allow-scripts"` without `allow-same-origin`
-  gives an opaque origin; `<base>`, meta-refresh and external scripts are stripped and a
-  `default-src 'none'` policy is injected.
+- **Artifact isolation.** Artifacts are served from `/api/items/[id]/render` under
+  `ARTIFACT_CSP`, never through `srcDoc`. `sandbox allow-scripts` in that response header —
+  with no `allow-same-origin` — puts the document on an opaque origin however it is reached,
+  including direct navigation, so it can never touch the session cookie. `connect-src 'none'`
+  keeps it from calling home. The iframe repeats the sandbox attribute as a second layer.
 
 ## Two rejected suggestions — do not re-raise without new evidence
 
@@ -132,49 +140,28 @@ nobody spends the time again.
   CSP, so a fresh nonce would stop inline scripts in the sandbox from running at all. If this
   design is ever changed, verify both inline execution and parent isolation.
 
-## URL artifact import — built, PR #3
+## URL artifact import — built, then removed (7 September)
 
-Paste the public URL of a single-page artifact and it is stored exactly like an upload.
-Available in Add content → "Import an artifact from a URL", and inside any artifact item as
-"Replace from a URL" to take a new version from the same source.
+Built in PR #3 and removed the same day. The intended source was almost always a Claude
+artifact, and Claude share links cannot be imported at all (below), so the feature carried a
+server-side URL fetcher and an SSRF guard for a case it could never serve. The user now prompts
+Claude for self-contained artifacts and uploads the exported file, which works.
 
-**How it works.** `importFromUrl` fetches server-side, stages the bytes in private Blob at the
-normal pathname, and returns a signed `UploadTicket` plus the HTML. Nothing touches the
-database at that point. Confirming calls the existing `finishUpload` with that receipt, so the
-import reuses the audited commit path verbatim — `head()` verification, idempotency on
-`versionId`, the same three writes. Discarding calls `discardImport`, which deletes the staged
-blob unless a version row already exists, so a discard leaves no orphan. Provenance goes into
-`item_versions.version_note` as `Imported from <final URL>`; no migration was needed.
+Removed: the `UrlImport` component and both its mount points, `importFromUrl` and
+`discardImport`, `/api/import-preview`, `src/lib/safe-fetch.ts`, `src/lib/address-guard.ts`, the
+address-guard spec, the import block in the content-delivery spec, and the import CSS.
 
-**The SSRF guard** lives in `src/lib/address-guard.ts` (pure predicates) and
-`src/lib/safe-fetch.ts` (the network side).
+**Server actions stay remotely callable even with no UI referencing them**, so removing the
+component alone would have left an authenticated admin able to invoke `importFromUrl`. That is
+why the whole feature went rather than just its surface.
 
-- Blocks loopback, private, link-local (including the 169.254.169.254 metadata address),
-  CGNAT, benchmarking, documentation, multicast and reserved ranges, in IPv4 and IPv6, and
-  unwraps IPv4-mapped, IPv4-compatible and NAT64 addresses so they cannot be used to smuggle a
-  blocked v4 address through a v6 literal. Unparseable input is blocked, not allowed.
-- Only http and https, only ports 80 and 443, no credentials in the URL.
-- **The boundary is a connect-time `lookup` hook**, not a resolve-then-fetch check: only
-  addresses that passed validation are handed back to the socket, so the connection cannot be
-  pointed somewhere else after the check. That is what closes DNS rebinding. The pre-flight
-  resolve in `fetchGuardedDocument` exists only to produce a clear error message and is not
-  the security control — do not remove the lookup hook and keep the pre-flight.
-- Every redirect hop is re-validated, capped at 3. `accept-encoding: identity` so the 25 MB cap
-  cannot be defeated by a compression bomb. Response must be `text/html`, capped while
-  streaming rather than after buffering.
+Kept, because artifact viewing depends on them: `/api/items/[id]/render`,
+`src/lib/artifact-response.ts`, `src/lib/artifact-hosts.ts`, and the proxy's `SELF_POLICED`
+entry for the render route.
 
-**Fidelity is surfaced, not hidden.** The preview renders the fetched HTML in the same sandbox
-the client gets, and warns when the page pulls scripts, stylesheets or images from other
-addresses (they will not load), and when the page has almost no text of its own and builds
-itself with JavaScript (the client may see a blank page). The admin decides before saving.
-
-Coverage: `tests/address-guard.spec.ts` is a browser-free table test over the address and URL
-predicates. `tests/content-delivery.spec.ts` drives the UI through six refusals and then a real
-import of `https://example.com/`, asserting nothing is written before confirmation and that the
-saved item is a draft artifact with `text/html` and the provenance note.
-
-Known gap: the title comes from the fetched `<title>` and cannot be edited in the preview —
-rename after saving via the normal item edit form.
+If import is ever wanted again — for a self-hosted page that genuinely is one document — the
+whole implementation including the SSRF guard and its tests is one revert away in PR #3, and the
+guard's design notes are in that PR.
 
 ### Artifacts are served from their own route, under their own policy (7 September)
 
@@ -229,9 +216,9 @@ So there is no fetchable document behind the link. This is not a gap in the impo
 amount of archiving, inlining or CDN allowlisting changes it. Working around the bot protection
 is out of scope on principle, and would break on their next deploy regardless.
 
-`assertNotAViewerPage` in `content-actions.ts` now refuses these URLs **before fetching**, so the
-attempt costs no request and stages no file. The message points at the export route. Add other
-viewer-page patterns to `VIEWER_PAGES` if more turn up.
+The importer that would have hit this is gone, so no guard against these URLs is needed any more.
+The finding is recorded here only so the conclusion is not re-derived: there is nothing to fetch
+behind a Claude share link, whatever tooling is pointed at it.
 
 The route that works for Claude-authored HTML is: export/download the artifact as a
 self-contained HTML file and upload it. With artifacts now served under their own policy, such a

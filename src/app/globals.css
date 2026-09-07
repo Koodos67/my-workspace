@@ -125,31 +125,3 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eef1e7;paddin
  .dropzone{padding:26px 16px}
  .button-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 }
-
-/* ---- Import an artifact from a public URL ---- */
-.url-import{margin-top:4px}
-.url-import-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
-.url-import-field{display:grid;gap:8px;flex:1;min-width:230px}
-.url-import-field>span{display:inline-flex;align-items:center;gap:7px;font-weight:600}
-.url-import-field input,.url-import-field select{width:100%;padding:12px;border:1px solid #ccd3c5;border-radius:6px;background:#fff}
-.url-import-form>.button{min-height:45px}
-.url-import-hint{margin:12px 0 0;font-size:12px;max-width:620px}
-.url-import .form-error,.url-import .notice{margin-top:14px}
-.import-preview{margin-top:20px;padding:20px;border:1px solid #c6d3c9;border-left:5px solid var(--green);border-radius:9px;background:#f2f7f1}
-.import-preview-head{display:flex;align-items:start;justify-content:space-between;gap:20px;flex-wrap:wrap}
-.import-preview-head strong{display:block;margin-top:7px;font-size:17px}
-.import-preview-head p{margin:6px 0 0;font-size:12px;overflow-wrap:anywhere}
-.import-preview-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.import-preview .notice{display:flex;align-items:start;gap:9px;margin-top:16px;font-size:13px;line-height:1.55}
-.notice.stop{background:#f8ece9;color:#7a2f22;border-left:4px solid #a8402c}
-.notice.stop strong{color:#61241a}
-.import-preview>.muted{margin:18px 0 9px;font-size:12px}
-.import-preview .artifact-frame{height:52vh;min-height:340px;background:#fff}
-@media(max-width:700px){
- .url-import-form{gap:10px}
- .url-import-form>.button{width:100%}
- .import-preview{padding:15px}
- .import-preview-actions{width:100%}
- .import-preview-actions .button{flex:1}
- .import-preview .artifact-frame{min-height:260px}
-}
