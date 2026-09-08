@@ -5,6 +5,21 @@
 .project-heading{margin-top:20px;overflow-wrap:anywhere}
 .project-heading h2{margin:0;font-size:20px}
 .project-heading p{margin:8px 0 0}
+
+/* A project is the parent of everything under it, so its panel carries more weight than the
+   sections it contains, and each project-scoped section names the project it belongs to. */
+.project-navigation{border-color:#cfd8c4;background:linear-gradient(#f4f7ee,#fff 90px)}
+.project-navigation .board-filters{gap:9px}
+.project-navigation .board-filters a{font-weight:600;padding:11px 15px}
+.project-navigation .board-filters a[aria-current=page]{box-shadow:0 2px 8px #354c3726}
+.project-heading{padding-top:18px;border-top:1px solid #e2e7da}
+.project-scope{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:#eaf0e3;color:#3d5334;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;overflow-wrap:anywhere}
+.project-scope svg{display:block;vertical-align:0;flex-shrink:0}
+h2 .project-scope{position:relative;top:-1px}
+@media(max-width:700px){
+ .section-top h2,.form-panel>h2{flex-wrap:wrap}
+ .project-navigation{background:#fbfcf9}
+}
 /* Delivery reporting follows the existing paper, olive and outlined-card palette. */
 .track-status{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap;background:#f0f1ed;color:#666e60}
 .track-status>span{width:5px;height:5px;border-radius:50%;background:currentColor}

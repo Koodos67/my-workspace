@@ -4,6 +4,49 @@ Last updated: 8 September 2026. Read this file before continuing. It is the sing
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
 
+## Project selector fixes — Claude Opus 5, 8 September 2026
+
+Two admin problems the user hit on the shipped projects feature. Presentation and a client-side
+reconciliation bug; no schema, server action, RLS or approval change.
+
+### The projects panel duplicated itself on every switch
+
+Clicking between project chips stacked another whole Projects card, growing without limit.
+Reproduced with a temporary spec before touching anything, which is what identified it:
+
+- Panels grew **only when returning to an already-visited `?project=` URL** — 1, 1, 2, 3 across
+  three switches. A hard reload always returned 1, so nothing was wrong server side.
+- `TrackManager` never duplicated, so it was not general to the page.
+- Cause: `<ProjectNavigation key={project.id}>` sat directly in the page's own child list. On a
+  soft navigation the client router replays the cached RSC payload for that URL, and a component
+  whose key changed cannot be matched against the cached copy, so it is appended rather than
+  replaced. The client view never had the key, which is why only the admin view was affected.
+- Fix: the key is gone from the page. It existed to reseed the Project settings form's
+  uncontrolled `defaultValue`s when switching project, so that reset now lives inside the
+  component as `<ActionForm key={selected.id}>`, where it resets the fields without taking part
+  in the page-level reconciliation. Verified 1 panel across every switch and after reload.
+- **Do not put a changing `key` on a component in a page's child list** when the only thing
+  varying is a search param. Key something inside it instead. The sibling
+  `<div key={project.id}>` wrapping the rest of the admin content is a host element and does not
+  show the behaviour; it was left alone and re-verified.
+
+### The selected project was invisible from the work tracks
+
+The selector sits at the top of a long page, so by the time an admin was editing a track there
+was nothing on screen naming the project being changed.
+
+- New `src/components/project-scope.tsx`: a small chip naming the project, with an `sr-only`
+  "Project:" prefix so the heading reads correctly aloud.
+- It appears on exactly the project-scoped sections — Work tracks, Add content, Project content,
+  Folders. Its **absence on Members and Workspace settings is deliberate and meaningful**: those
+  are client-wide. Do not add it there.
+- `TrackManager` gained a `projectName` prop. The projects panel itself was given more visual
+  weight than the sections it contains, since it is their parent.
+
+Verified: typecheck, production build, `test:projects`, `test:rls` and all four browser suites
+pass unmodified, including the 390px overflow assertion. Temporary spec deleted and its
+development rows removed; leftover counts confirmed zero.
+
 ## Projects under clients - 8 September 2026
 
 The user needs several projects per client, each owning its work tracks, folders,

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { readProjects } from '@/lib/projects';
 import { ProjectNavigation } from '@/components/project-navigation';
+import { ProjectScope } from '@/components/project-scope';
 import { notFound } from 'next/navigation';
 import {
   ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2,
@@ -72,13 +73,16 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
       <a href="#tracks">Work tracks</a><a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a>
     </nav>
 
-    <ProjectNavigation key={data.project?.id || 'empty'} projects={data.projects} selected={data.project} base={'/admin/clients/'+id} clientId={id} />
+    {/* No key here. A changing key on a component in the page's own child list makes the client
+        router append a second copy when navigating back to an already-visited ?project= URL
+        instead of replacing it. Forms that need resetting are keyed inside the component. */}
+    <ProjectNavigation projects={data.projects} selected={data.project} base={'/admin/clients/'+id} clientId={id} />
 
     {data.project && <div key={data.project.id}>
-    <TrackManager projectId={data.project.id} clientId={id} slug={data.client.slug} tracks={data.tracks} approvals={data.approvals} approvalItems={live.filter(item => item.is_published_now && (!item.folder_id || folders.some(folder => folder.id===item.folder_id))).map(item=>({id:item.id,title:item.title,type:item.type,current_version_id:item.current_version_id}))} />
+    <TrackManager projectId={data.project.id} projectName={data.project.name} clientId={id} slug={data.client.slug} tracks={data.tracks} approvals={data.approvals} approvalItems={live.filter(item => item.is_published_now && (!item.folder_id || folders.some(folder => folder.id===item.folder_id))).map(item=>({id:item.id,title:item.title,type:item.type,current_version_id:item.current_version_id}))} />
 
     <section id="content" className="form-panel">
-      <h2>Add content</h2>
+      <h2>Add content <ProjectScope name={data.project.name} /></h2>
       <p className="muted">New content starts as a draft. Open the item below, choose <strong>Share with client</strong>, then <strong>Save &amp; publish</strong> when it is ready.</p>
       <UploadPanel projectId={data.project.id} clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
       <details className="sub-panel">
@@ -96,7 +100,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
 
     <section>
       <div className="section-top">
-        <h2>Project content</h2>
+        <h2>Project content <ProjectScope name={data.project.name} /></h2>
         <span className="muted">{live.length} item{live.length===1?'':'s'} · {published} published</span>
       </div>
       {!live.length && <div className="empty">Upload your first artifact or add a link above.</div>}
@@ -141,7 +145,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
     </section>
 
     <section id="folders" className="form-panel">
-      <h2>Folders</h2>
+      <h2>Folders <ProjectScope name={data.project.name} /></h2>
       <p className="muted">Drag a row by its handle to place it before another, or use the arrow buttons.</p>
       <FolderControls clientId={id} folders={folders.map(f=>({id:f.id,name:f.name,track_id:f.track_id}))} tracks={data.tracks}/>
       <ActionForm action={createFolder.bind(null,id)} className="inline-form add-folder" success="Folder added.">

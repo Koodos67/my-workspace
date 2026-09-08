@@ -23,7 +23,9 @@ export function ProjectNavigation({ projects, selected, base, clientId }: {
         </ActionForm>
       </details>
       {selected && <details className="sub-panel"><summary>Project settings</summary>
-        <ActionForm action={updateProject.bind(null, clientId, selected.id)} success="Project updated.">
+        {/* Keyed so switching project reseeds these uncontrolled defaults rather than leaving
+            the previous project's name and description sitting in the fields. */}
+        <ActionForm key={selected.id} action={updateProject.bind(null, clientId, selected.id)} success="Project updated.">
           <label>Project name<input name="name" defaultValue={selected.name} required maxLength={120} /></label>
           <label className="wide">Project description<textarea name="description" defaultValue={selected.description} maxLength={500} /></label>
           <button className="button">Save project</button>

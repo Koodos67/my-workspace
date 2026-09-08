@@ -11,6 +11,7 @@ import {
   currentStageIndex, sinceLabel, statusHelp, statusLabel, trackDate, TRACK_STATUSES, type Track,
 } from '@/lib/tracks';
 import { ApprovalManager, type ApprovalItem } from './approval-manager';
+import { ProjectScope } from './project-scope';
 import { approvalLabels, type Approval } from '@/lib/approvals';
 
 /**
@@ -114,7 +115,7 @@ function TrackEditorBody({ clientId, track, approvals, approvalItems, first, las
   </div>;
 }
 
-export function TrackManager({ clientId, projectId, slug, tracks, approvals, approvalItems }: { clientId: string; projectId: string; slug: string; tracks: Track[]; approvals: Approval[]; approvalItems: ApprovalItem[] }) {
+export function TrackManager({ clientId, projectId, projectName, slug, tracks, approvals, approvalItems }: { clientId: string; projectId: string; projectName: string; slug: string; tracks: Track[]; approvals: Approval[]; approvalItems: ApprovalItem[] }) {
   const active = tracks.filter(track => !track.archived_at);
   const archived = tracks.filter(track => track.archived_at);
   const stages = active.filter(track => !track.recurring);
@@ -129,7 +130,7 @@ export function TrackManager({ clientId, projectId, slug, tracks, approvals, app
 
   return <section id="tracks" className="form-panel track-manager">
     <div className="section-top">
-      <div><h2><Layers3 size={20} aria-hidden="true" /> Work tracks</h2>
+      <div><h2><Layers3 size={20} aria-hidden="true" /> Work tracks <ProjectScope name={projectName} /></h2>
         <p className="muted">A clear picture of progress. Status and notes are visible to your client as soon as you save.</p></div>
       <Link className="button secondary compact" href={'/admin/board?client=' + slug}>Open board <ArrowUpRight size={15} aria-hidden="true" /></Link>
     </div>
