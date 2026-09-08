@@ -60,7 +60,8 @@ test('work tracks report progress, preserve filing and support the cross-client 
   await folderRow.getByLabel('Work track for Research reports').selectOption(tracks[1].id);
   await folderRow.getByRole('button',{name:'Save',exact:true}).click();
   await expect(folderRow.getByRole('status')).toHaveText('Saved.');
-  const folder = (await pool.query('SELECT id,track_id FROM folders WHERE client_id=$1',[clientId])).rows[0];
+  // Projects are seeded with a folder per delivery stage, so name the one this test made.
+  const folder = (await pool.query("SELECT id,track_id FROM folders WHERE client_id=$1 AND name='Research reports'",[clientId])).rows[0];
   expect(folder.track_id).toBe(tracks[1].id);
   // Counts must exclude drafts, archived items and archived folders even in admin preview.
   await pool.query("INSERT INTO items(client_id,folder_id,type,title,url,published_at) VALUES($1,$2,'link','Research pack','https://example.com',now()),($1,$2,'link','Secret draft','https://example.com',NULL)",[clientId,folder.id]);

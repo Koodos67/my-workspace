@@ -171,7 +171,7 @@ test('admin delivers private versioned content; only members see published items
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   await page.setViewportSize({width:1280,height:900});
   page.on('dialog',dialog=>dialog.accept());
-  await page.locator('#folders').getByRole('button',{name:'Archive',exact:true}).click();
+  await page.locator('.folder-row').filter({has:page.getByRole('button',{name:'Drag Reports to reorder'})}).getByRole('button',{name:'Archive',exact:true}).click();
   await member.goto('/items/'+item.id);
   await expect(member.getByRole('heading',{name:'QA interactive report'})).toHaveCount(0);
   expect((await memberContext.request.get(base+'/api/items/'+item.id+'/file')).status()).toBe(404);

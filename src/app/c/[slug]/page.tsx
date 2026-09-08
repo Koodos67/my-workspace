@@ -31,7 +31,10 @@ export default async function ClientWorkspace({ params, searchParams }: { params
     return {client,projects,project,folders,items,tracks,approvals};
   });
   if (!data) notFound();
-  const {client,folders,items,tracks}=data;
+  const {client,items,tracks}=data;
+  // Every project is seeded with a folder per delivery stage, so most are empty most of the time.
+  // Filing structure is the studio's business; the client should only see folders holding work.
+  const folders=data.folders.filter(folder=>items.some(item=>item.folder_id===folder.id));
   return <Shell signedIn client name={client.name} initials={(profile.full_name || profile.email).slice(0,2).toUpperCase()}>
     <BackLink href={profile.role==='admin' ? '/admin/clients/'+client.id+(data.project ? '?project='+data.project.id : '') : '/workspaces?all=1'}>{profile.role==='admin' ? 'Back to manage workspace' : 'Back to all workspaces'}</BackLink>
     <div className="workspace-brand" style={{borderColor:client.accent_color || '#354c37'}}><div className="eyebrow">{client.name} × KOODOS</div><h1>Your work has a home.</h1><p className="muted">The things we’re making together, all in one place.</p></div>

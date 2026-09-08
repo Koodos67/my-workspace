@@ -79,6 +79,13 @@ test('a client can have independent projects, content and work tracks', async ({
   await expect(page.locator('.content-row')).toHaveCount(0);
   const secondTracks = (await pool.query('SELECT id,name FROM tracks WHERE project_id=$1 ORDER BY position', [second])).rows;
   expect(secondTracks.map(t => t.name)).toEqual(['Discovery','Research','Plan','Build','Review','Launch','Operate']);
+  // A new project arrives with a folder per delivery stage, each linked to its stage, plus the
+  // commercial folder. Operate is ongoing service, not a filing stage, so it gets none.
+  const seededFolders = (await pool.query('SELECT name,track_id FROM folders WHERE project_id=$1 ORDER BY position', [second])).rows;
+  expect(seededFolders.map(f => f.name)).toEqual(['Discovery','Research','Plan','Build','Review','Launch','Proposals & commercials']);
+  expect(seededFolders[0].track_id).toBe(secondTracks[0].id);
+  expect(seededFolders[5].track_id).toBe(secondTracks[5].id);
+  expect(seededFolders[6].track_id).toBeNull();
   await page.getByLabel('New folder name').fill('Website files');
   await page.getByRole('button', { name: 'Add folder', exact: true }).click();
   const folderRow = page.locator('.folder-row').filter({ has: page.getByLabel('Work track for Website files') });
