@@ -7,7 +7,7 @@ in here and deleted.
 ## Projects under clients - 8 September 2026
 
 The user needs several projects per client, each owning its work tracks, folders,
-documents/links and approvals. Implemented locally on top of Claude's style pass;
+documents/links and approvals. Implemented on `feat/client-projects` on top of Claude's style pass;
 the style changes are preserved. This section supersedes earlier client-only ownership.
 
 - Client membership and branding stay at client level. Members see all active projects
@@ -38,6 +38,14 @@ the style changes are preserved. This section supersedes earlier client-only own
 - Migration 006 is applied to the separate DEVELOPMENT database only. Production
   migration and release are not yet done. Apply the migration before deploying code.
   Its LF line endings are pinned in `.gitattributes` for checksum consistency.
+- Production rehearsal passed in a rolled-back transaction: two clients become two
+  projects and all existing records remain unchanged. Automatic approval review rejected
+  the persistent production migration because this feature request did not explicitly
+  authorise production schema/data mutation. Do not apply it or merge/deploy the feature
+  until the user approves that production step. Automatic review also rejected pushing
+  the feature branch to the existing GitHub origin without explicit authorisation to
+  upload the source. The feature remains on a local branch; the PR description is
+  prepared in `.shipstudio/PR-PROJECTS.md`. No remote PR or deployment was created.
 - `scripts/migrate-projects.ts` is a development-only runner: default rehearses in a
   rolled-back transaction, `--apply` applies. The rehearsal was run before application
   with legacy folders, a versioned artifact and an approved launch request; all existing

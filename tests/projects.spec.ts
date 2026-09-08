@@ -159,4 +159,3 @@ test('a client can have independent projects, content and work tracks', async ({
     expect(errors).toEqual([]);
   } finally { await memberContext.close(); await strangerContext.close(); }
 });
-
