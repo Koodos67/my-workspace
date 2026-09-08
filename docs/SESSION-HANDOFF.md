@@ -322,6 +322,9 @@ filtering, artifact sandboxing or the approval state machine.** Treat this styli
 
 ## Current release
 
+- Standard project folders shipped through PR #14, merged to `main` as `40017ea`, production
+  deployment Ready. No migration; existing projects are untouched and can adopt the set from the
+  Folders panel when they have none.
 - Client comments shipped through PR #13, merged to `main` as `a251b9c`, production deployment
   Ready. Migration 007 was applied to production before the code reached it.
 - The project selector fixes shipped through PR #12, merged as `7f1f3b0`, and were confirmed
