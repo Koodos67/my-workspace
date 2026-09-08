@@ -47,6 +47,20 @@ Verified: typecheck, production build, `test:projects`, `test:rls` and all four 
 pass unmodified, including the 390px overflow assertion. Temporary spec deleted and its
 development rows removed; leftover counts confirmed zero.
 
+Shipped through PR #12, merged to `main` as `7f1f3b0`, production deployment Ready and
+confirmed correct by the user on production.
+
+### A branch push is only ever a Preview deployment
+
+Worth stating plainly, because it cost a round trip. The user retested after a branch push, saw
+the old behaviour, and reasonably concluded the fix had not worked. It had — the push produced a
+**Preview** deployment; production only rebuilds on a merge to `main`. When a fix is reported as
+still broken, check `git merge-base --is-ancestor <commit> origin/main` before re-diagnosing the
+code. The development database has **no clients**, so any screenshot containing real client data
+is production by definition — that is the fastest way to tell where the user is looking.
+After a deploy, an open admin tab still holds the previous payloads in the router cache; a hard
+refresh is needed to see the change.
+
 ## Projects under clients - 8 September 2026
 
 The user needs several projects per client, each owning its work tracks, folders,
