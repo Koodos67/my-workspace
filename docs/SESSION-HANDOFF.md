@@ -294,6 +294,12 @@ filtering, artifact sandboxing or the approval state machine.** Treat this styli
 
 ## Current release
 
+- Client comments shipped through PR #13, merged to `main` as `a251b9c`, production deployment
+  Ready. Migration 007 was applied to production before the code reached it.
+- The project selector fixes shipped through PR #12, merged as `7f1f3b0`, and were confirmed
+  correct on production by the user.
+- Projects under clients shipped through PR #11, merged as `759bf55`, with migration 006 applied
+  to development and production.
 - The work-track and approval style pass shipped through PR #10, merged to main as `88a8463`,
   and is live on production. Presentation and copy only — no migration, no server action change,
   and no change to auth, RLS, publication filtering, artifact sandboxing or approval behaviour.
