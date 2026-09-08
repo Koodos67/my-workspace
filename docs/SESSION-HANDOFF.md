@@ -718,9 +718,18 @@ Two real bugs were found from that report and fixed:
 - Blob orphan cleanup and a permanent deletion/retention policy remain pending. Archive hides
   items; every superseded version is retained in Blob indefinitely, including uploads whose
   ticket was signed but whose `finishUpload` never landed. Decide the policy before the store grows.
-- Comments and acknowledgements remain schema-only: both tables exist with read policies, but
-  neither has an INSERT grant nor any UI. Inbox, exports and complete client branding controls
-  are also pending.
+- **Comments shipped on 8 September** (migration 007, PR #13). **Acknowledgements are still
+  schema-only** — the table has a read policy, no INSERT grant and no UI, and it now overlaps
+  heavily with approvals, which are richer and already shipped. Decide whether to build it or drop
+  the table rather than leaving a third half-feature in the schema.
+- Comments have **no unread state**: an admin sees that a client replied, not which comments are
+  new since they last looked. That needs a per-profile read marker, i.e. a new table. There are no
+  notifications of any kind, matching approvals. Comments are per item; there is no project- or
+  track-level discussion.
+- **Per-project access is an open decision.** Every client member currently sees every active
+  project for their client, which is the stated default for the projects cut and has never been
+  confirmed against a real preference. Cheaper to settle while there are two projects than twenty.
+- Inbox, exports and complete client branding controls are also pending.
 - Automated real-email sign-in coverage remains pending. The existing integration tests forge
   Better Auth session cookies as `token + HMAC-SHA256(token)`, so any change to that cookie
   format breaks the suite with a misleading failure. They also run against the real development
@@ -738,6 +747,24 @@ Two real bugs were found from that report and fixed:
   competing Next.js process. `npm run dev` pins that port to match the test config.
 - Sandbox network restrictions require elevated execution for development DB tests and
   deployment commands.
+- **The user works primarily against production, deliberately** (stated 8 September 2026).
+  Magic-link sign-in only returns there, the ShipStudio preview cannot hold an authenticated
+  session, and the development database holds no clients — so production is the only place an
+  authenticated flow can be tested. No clients have access yet; he will move to stricter
+  rehearse-then-release discipline before they do. Until then do not gate ordinary work behind
+  development-only rehearsal, but always say plainly when something touches production, and run
+  the suites first.
+- **A branch push is only ever a Preview deployment.** `portal.getkoodos.com` rebuilds only on a
+  merge to `main`. This cost a full round trip on 8 September: a fix was pushed to a branch, the
+  user retested production, saw the old behaviour and reasonably concluded the fix had failed. If
+  something is reported as still broken, run
+  `git merge-base --is-ancestor <commit> origin/main` before re-diagnosing the code. Any screenshot
+  containing real client data is production by definition. After a deploy an open tab still holds
+  the previous payloads in the router cache, so a hard refresh is needed.
+- **`npm run db:migrate` now defaults to the development database.** It previously called
+  `loadEnvConfig(process.cwd())`, which defaults to *production*, so the documented setup command
+  silently migrated production from a developer's machine. It now prints its target host every
+  run and requires `--production --yes` to touch production.
 - **Git ownership.** `.git` is owned by `KOODOS-1\CodexSandboxOffline` while sessions run as
   another user, so every git command needs `-c safe.directory=C:/Users/marku/ShipStudio/my-workspace`.
   For tools that shell out to git themselves — `gh` in particular — export the equivalent
@@ -751,16 +778,22 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. Review the project implementation/release status above before changing code or deploying.
-   Preserve the project hierarchy and read any subsequent user feedback on project access.
-2. The first style pass is done, merged and deployed — see "Style pass one" above for the files,
-   the decisions and the two traps in those components. That styling is the baseline: preserve it,
-   and do not restore the pre-style layout to match older session notes.
-3. Collect production feedback on Plan and Launch approval requests and client responses,
-   and on whether the new stage differentiation reads correctly with real client data.
+Everything below the "Current release" list is shipped, merged and live on production as of
+8 September 2026. Read the release status and the environment notes before changing code or
+deploying — particularly the production-first working practice and the preview-only branch push.
+
+1. **Preserve what is there.** The style pass is the visual baseline, the project hierarchy is the
+   data model, and both are load-bearing. Do not restore an older layout to match older session
+   notes, and do not reassign project ownership through child updates.
+2. **Collect production feedback** on the things that have never met real client behaviour: Plan
+   and Launch approval requests, the new comment threads, whether the stage differentiation reads
+   correctly with real data, and whether the seeded folders match how the studio actually files.
+3. **Three decisions are open and named** in "Remaining work and constraints": acknowledgements
+   (build or drop the table), per-project member access, and the Blob retention/deletion policy.
+   The retention one gets more expensive the longer it waits.
 4. The older admin layout and HTML rendering are approved; do not ask for that approval again.
    Subsequent user-directed style changes supersede the older visual baseline.
-5. Follow the remaining-work list above for future scope. Individual tasks remain future work;
-   performance optimisation is deliberately deferred at the user's request.
+5. Individual tasks remain future work; performance optimisation is deliberately deferred at the
+   user's request.
 
-The agreed reporting plan has no open design questions. Keep this file current as work progresses.
+No open design questions block the next piece of work. Keep this file current as work progresses.
