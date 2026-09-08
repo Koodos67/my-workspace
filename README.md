@@ -2,6 +2,23 @@
 
 Latest work, release status and remaining tasks: [session handoff](docs/SESSION-HANDOFF.md).
 
+Clients contain projects. Each project owns its work tracks, folders, documents,
+links and approval requests. Membership and branding remain at client level;
+members can see every active project for their client. Select a project in the
+client workspace; its address uses `?project=<id>`.
+
+Apply `006_projects.sql` before running the project-aware application. It places
+existing client content in a renameable **Main project**, preserving item URLs,
+versions, timestamps and approval history. New clients receive the same initial
+project, and each new project receives its own seven standard tracks. Archiving a
+project hides its contents from members; restoring it restores publication visibility.
+Cross-project moves are not supported in this version.
+
+Run `npm run test:projects` for project ownership and access checks, and
+`npx playwright test tests/projects.spec.ts` for the multi-project browser workflow.
+The development-only migration runner `npx tsx scripts/migrate-projects.ts`
+rehearses and rolls back; `--apply` applies the migration to development only.
+
 Next.js App Router, TypeScript, Tailwind, Neon Postgres, Better Auth, and Resend.
 Vercel project: mark-thurman-s-projects/my-workspace.
 Neon: my-workspace-db, free plan, London, connected to development only.

@@ -114,7 +114,7 @@ function TrackEditorBody({ clientId, track, approvals, approvalItems, first, las
   </div>;
 }
 
-export function TrackManager({ clientId, slug, tracks, approvals, approvalItems }: { clientId: string; slug: string; tracks: Track[]; approvals: Approval[]; approvalItems: ApprovalItem[] }) {
+export function TrackManager({ clientId, projectId, slug, tracks, approvals, approvalItems }: { clientId: string; projectId: string; slug: string; tracks: Track[]; approvals: Approval[]; approvalItems: ApprovalItem[] }) {
   const active = tracks.filter(track => !track.archived_at);
   const archived = tracks.filter(track => track.archived_at);
   const stages = active.filter(track => !track.recurring);
@@ -180,6 +180,7 @@ export function TrackManager({ clientId, slug, tracks, approvals, approvalItems 
 
     <details className="sub-panel"><summary><Plus size={16} aria-hidden="true" /> Add a work track</summary>
       <ActionForm action={createTrack.bind(null, clientId)} success="Work track added.">
+        <input type="hidden" name="projectId" value={projectId} />
         <label>New track name<input name="name" required maxLength={120} /></label>
         <label>Expected deliverable<input name="deliverable" maxLength={120} /></label>
         <label className="wide">What happens<textarea name="summary" maxLength={500} /></label>

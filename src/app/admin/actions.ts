@@ -7,6 +7,7 @@ import { withActor, getPool } from '@/lib/db';
 import { getAuth } from '@/lib/auth-config';
 import { headers } from 'next/headers';
 import { activeClient, textField } from '@/lib/content';
+import { activeProject } from '@/lib/projects';
 import { seedTracks } from '@/lib/track-data';
 
 export async function updateClient(id: string, form: FormData) {
@@ -41,7 +42,7 @@ export async function reorderFolder(clientId: string, folderId: string, beforeId
   const { profile } = await requireAdmin();
   await withActor(profile.id, async db => {
     await activeClient(db,clientId);
-    const { rows } = await db.query('SELECT id FROM folders WHERE client_id=$1 AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE',[clientId]);
+    const { rows } = await db.query('SELECT id FROM folders WHERE client_id=$1 AND project_id=(SELECT project_id FROM folders WHERE id=$2 AND client_id=$1) AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE',[clientId,folderId]);
     const ids: string[] = rows.map(row=>row.id);
     if (!ids.includes(folderId)) return;
     if (beforeId !== null && (!ids.includes(beforeId) || folderId === beforeId)) return;
@@ -87,8 +88,8 @@ export async function createFolder(clientId: string, form: FormData) {
   const { profile } = await requireAdmin();
   const name = field(form, 'name');
   await withActor(profile.id, async db => {
-    await activeClient(db, clientId);
-    await db.query('INSERT INTO folders(client_id, name, position) SELECT $1,$2,coalesce(max(position),0)+1000 FROM folders WHERE client_id = $1', [clientId, name]);
+    const projectId = await activeProject(db, clientId, String(form.get('projectId') || ''));
+    await db.query('INSERT INTO folders(client_id, name, project_id, position) SELECT $1,$2,$3,coalesce(max(position),0)+1000 FROM folders WHERE client_id = $1 AND project_id=$3', [clientId, name, projectId]);
   });
   revalidatePath('/admin/clients/' + clientId);
 }
@@ -112,7 +113,7 @@ export async function archiveFolder(clientId: string, folderId: string) {
 export async function moveFolder(clientId: string, folderId: string, direction: 'up' | 'down') {
   const { profile } = await requireAdmin();
   await withActor(profile.id, async db => {
-    const { rows } = await db.query('SELECT id FROM folders WHERE client_id = $1 AND archived_at IS NULL ORDER BY position, created_at FOR UPDATE', [clientId]);
+    const { rows } = await db.query('SELECT id FROM folders WHERE client_id = $1 AND project_id=(SELECT project_id FROM folders WHERE id=$2 AND client_id=$1) AND archived_at IS NULL ORDER BY position, created_at FOR UPDATE', [clientId,folderId]);
     const at = rows.findIndex(row => row.id === folderId);
     const next = at + (direction === 'up' ? -1 : 1);
     if (at < 0 || next < 0 || next >= rows.length) return;

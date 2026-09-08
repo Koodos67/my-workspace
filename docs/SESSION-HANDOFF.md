@@ -1,8 +1,54 @@
 # Session handoff
 
-Last updated: 7 September 2026. Read this file before continuing. It is the single
+Last updated: 8 September 2026. Read this file before continuing. It is the single
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
+
+## Projects under clients - 8 September 2026
+
+The user needs several projects per client, each owning its work tracks, folders,
+documents/links and approvals. Implemented locally on top of Claude's style pass;
+the style changes are preserved. This section supersedes earlier client-only ownership.
+
+- Client membership and branding stay at client level. Members see all active projects
+  for their client; separate project membership is not implemented. This is the stated
+  default for this cut; the optional access question has not received a different choice.
+- Both admin and client pages have a project selector using `?project=<uuid>`. No query
+  means the first active project. Unknown, cross-client or archived selections return 404.
+  Existing client and item URLs continue to work, and item back links retain the project.
+- Admins can create, rename, describe, archive and restore projects. Every new client
+  gets a Main project; each new project gets the seven standard work tracks. Members,
+  client branding and client archive controls remain below the project content.
+- The studio board labels both client and project, including accessible status/drag
+  names, and links to the correct project/track. The client directory counts active projects.
+- Migration `006_projects.sql` creates projects and gives tracks, folders, items and
+  approval requests non-null project ownership. Composite FKs reject cross-project
+  folder/track, item/folder and approval/source associations, even within one client.
+- Backfill creates one renameable Main project per existing client, preserving IDs,
+  timestamps, file/version paths and approval snapshots. Item update/invalidation
+  triggers are suspended only for this transactional backfill and restored immediately.
+- Ownership cannot be reassigned through normal child updates. Cross-project content
+  moves are not implemented. Legacy callers may omit a project only when exactly one
+  active project exists; ambiguous inserts fail. New UI uploads sign the project in
+  their receipt and recheck it when saving, including replacement uploads.
+- Project archive hides its tracks, folders, items, versions and approvals from members
+  through RLS, and blocks content changes and approval requests/responses. Restore
+  restores previous publication/approval state; records and Blob files are retained.
+  Client archive/revocation still remove access across every project.
+- Migration 006 is applied to the separate DEVELOPMENT database only. Production
+  migration and release are not yet done. Apply the migration before deploying code.
+  Its LF line endings are pinned in `.gitattributes` for checksum consistency.
+- `scripts/migrate-projects.ts` is a development-only runner: default rehearses in a
+  rolled-back transaction, `--apply` applies. The rehearsal was run before application
+  with legacy folders, a versioned artifact and an approved launch request; all existing
+  values were preserved. The real development database contained no clients at application.
+- Verification: production build, `test:projects`, `test:approvals`, `test:rls`
+  and all four browser suites passed. Desktop/390px screenshots reviewed. The final targeted
+  browser rerun passed for second-project upload/approval and selector spacing changes.
+  `tests/projects.spec.ts` uses temporary development rows and removes its Blob uploads.
+- New core files: `src/lib/projects.ts`, `src/app/admin/project-actions.ts`,
+  `src/components/project-navigation.tsx`, migration 006 and the project test/migration scripts.
+  Existing actions/queries now scope creation, ordering, reading and approvals to a project.
 
 ## Style handoff to Claude Opus 5 - 7 September 2026
 
@@ -524,14 +570,16 @@ Two real bugs were found from that report and fixed:
 
 ## Next session
 
-1. The first style pass is done, merged and deployed — see "Style pass one" above for the files,
+1. Review the project implementation/release status above before changing code or deploying.
+   Preserve the project hierarchy and read any subsequent user feedback on project access.
+2. The first style pass is done, merged and deployed — see "Style pass one" above for the files,
    the decisions and the two traps in those components. That styling is the baseline: preserve it,
    and do not restore the pre-style layout to match older session notes.
-2. Collect production feedback on Plan and Launch approval requests and client responses,
+3. Collect production feedback on Plan and Launch approval requests and client responses,
    and on whether the new stage differentiation reads correctly with real client data.
-3. The older admin layout and HTML rendering are approved; do not ask for that approval again.
+4. The older admin layout and HTML rendering are approved; do not ask for that approval again.
    Subsequent user-directed style changes supersede the older visual baseline.
-4. Follow the remaining-work list above for future scope. Individual tasks remain future work;
+5. Follow the remaining-work list above for future scope. Individual tasks remain future work;
    performance optimisation is deliberately deferred at the user's request.
 
 The agreed reporting plan has no open design questions. Keep this file current as work progresses.

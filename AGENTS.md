@@ -10,8 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project handoff
 
-Read `docs/SESSION-HANDOFF.md` before starting work. The user is making style changes
-with Claude Opus 5 after the 7 September 2026 handoff and will log those changes.
-On returning, review those logs, recent commits and the working-tree diff before
-editing. Preserve the updated styling as the new baseline; do not restore an older
-design merely to match previous session notes.
+Read `docs/SESSION-HANDOFF.md` before starting work. Claude's 7 September style pass
+is the baseline. The 8 September work introduces projects under clients; check its
+migration and release status before continuing. Review logs, recent commits and the
+working-tree diff before editing. Preserve the updated styling and project ownership.

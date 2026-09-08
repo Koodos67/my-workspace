@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { readProjects } from '@/lib/projects';
+import { ProjectNavigation } from '@/components/project-navigation';
 import { notFound } from 'next/navigation';
 import {
   ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2,
@@ -24,7 +26,7 @@ export const dynamic = 'force-dynamic';
 const date = (value: Date | null) => value ? new Date(value).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}) : 'Not yet';
 const initials = (name: string | null, email: string) => (name || email).trim().split(/\s+/).slice(0,2).map(part=>part[0] ?? '').join('').toUpperCase() || '?';
 
-export default async function ClientAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ invited?: string; emailError?: string }> }) {
+export default async function ClientAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ invited?: string; emailError?: string; project?: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const { profile } = await requireAdmin();
@@ -32,21 +34,25 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
   const data = await withActor(profile.id, async db => {
     const client = (await db.query("SELECT * FROM clients WHERE id=$1 AND status='active'",[id])).rows[0];
     if (!client) return null;
-    const folders = (await db.query('SELECT id,name,archived_at,track_id FROM folders WHERE client_id=$1 ORDER BY position,created_at,id',[id])).rows;
-    const tracks = await readTracks(db, id, true);
-    const approvals = await readApprovals(db, id);
+    const projects = await readProjects(db, id, true);
+    const project = notices.project ? projects.find(p => p.id === notices.project && !p.archived_at) : projects.find(p => !p.archived_at);
+    if (notices.project && !project) return null;
+    const projectId = project?.id ?? null;
+    const folders = (await db.query('SELECT id,name,archived_at,track_id FROM folders WHERE client_id=$1 AND project_id=$2 ORDER BY position,created_at,id',[id,projectId])).rows;
+    const tracks = project ? await readTracks(db, id, true, project.id) : [];
+    const approvals = project ? await readApprovals(db, id, project.id) : [];
     const members = (await db.query('SELECT p.id,p.full_name,p.email,p.last_seen_at,m.invited_at,m.first_seen_at FROM memberships m JOIN profiles p ON p.id=m.profile_id WHERE m.client_id=$1 ORDER BY m.invited_at',[id])).rows;
     const items = (await db.query(
       `SELECT i.*, i.published_at<=now() AS is_published_now,
         (SELECT count(*) FROM item_versions v WHERE v.item_id=i.id) AS versions,
         (SELECT v.mime_type FROM item_versions v WHERE v.id=i.current_version_id) AS mime
-       FROM items i WHERE client_id=$1 ORDER BY position,created_at,id`,[id])).rows;
-    return {client,folders,members,items,tracks,approvals};
+       FROM items i WHERE client_id=$1 AND project_id=$2 ORDER BY position,created_at,id`,[id,projectId])).rows;
+    return {client,projects,project,folders,members,items,tracks,approvals};
   });
   if (!data) notFound();
 
   const folders=data.folders.filter(f=>!f.archived_at);
-  const folderOptions=<><option value="">Workspace root</option>{folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</>;
+  const folderOptions=<><option value="">Project root</option>{folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</>;
   const live=data.items.filter(i=>!i.archived_at);
   const published=live.filter(i=>i.published_at).length;
   const joined=data.members.filter(m=>m.first_seen_at).length;
@@ -59,22 +65,26 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
         <h1>{data.client.name}</h1>
         <p className="muted">Organise the work. Bring the right people in.</p>
       </div>
-      <Link className="button secondary" href={'/c/'+data.client.slug}>View workspace <ArrowUpRight size={16} aria-hidden="true" /></Link>
+      <Link className="button secondary" href={'/c/'+data.client.slug+(data.project ? '?project='+data.project.id : '')}>View workspace <ArrowUpRight size={16} aria-hidden="true" /></Link>
     </div>
 
     <nav className="section-links" aria-label="Workspace sections">
       <a href="#tracks">Work tracks</a><a href="#content">Content</a><a href="#folders">Folders</a><a href="#members">Members</a><a href="#settings">Settings</a>
     </nav>
 
-    <TrackManager clientId={id} slug={data.client.slug} tracks={data.tracks} approvals={data.approvals} approvalItems={live.filter(item => item.is_published_now && (!item.folder_id || folders.some(folder => folder.id===item.folder_id))).map(item=>({id:item.id,title:item.title,type:item.type,current_version_id:item.current_version_id}))} />
+    <ProjectNavigation key={data.project?.id || 'empty'} projects={data.projects} selected={data.project} base={'/admin/clients/'+id} clientId={id} />
+
+    {data.project && <div key={data.project.id}>
+    <TrackManager projectId={data.project.id} clientId={id} slug={data.client.slug} tracks={data.tracks} approvals={data.approvals} approvalItems={live.filter(item => item.is_published_now && (!item.folder_id || folders.some(folder => folder.id===item.folder_id))).map(item=>({id:item.id,title:item.title,type:item.type,current_version_id:item.current_version_id}))} />
 
     <section id="content" className="form-panel">
       <h2>Add content</h2>
       <p className="muted">New content starts as a draft. Open the item below, choose <strong>Share with client</strong>, then <strong>Save &amp; publish</strong> when it is ready.</p>
-      <UploadPanel clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
+      <UploadPanel projectId={data.project.id} clientId={id} folders={folders.map(f=>({id:f.id,name:f.name}))}/>
       <details className="sub-panel">
         <summary><Link2 size={16} aria-hidden="true" /> Add a link</summary>
         <ActionForm action={createLink.bind(null,id)} success="Link added as a draft.">
+          <input type="hidden" name="projectId" value={data.project.id} />
           <label>Title<input name="title" required maxLength={120}/></label>
           <label>URL<input name="url" type="url" required maxLength={2048} placeholder="https://"/></label>
           <label className="wide">Description<textarea name="description" maxLength={500}/></label>
@@ -86,11 +96,11 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
 
     <section>
       <div className="section-top">
-        <h2>Workspace content</h2>
+        <h2>Project content</h2>
         <span className="muted">{live.length} item{live.length===1?'':'s'} · {published} published</span>
       </div>
       {!live.length && <div className="empty">Upload your first artifact or add a link above.</div>}
-      {[{id:null,name:'Workspace root'},...folders].map(folder=>{
+      {[{id:null,name:'Project root'},...folders].map(folder=>{
         const items=live.filter(item=>item.folder_id===folder.id);
         return items.length>0 && <section className="folder-group" key={folder.id || 'root'}>
           <h3><span className="type-icon" data-kind="folder"><Folder size={16} strokeWidth={1.75} aria-hidden="true" /></span>{folder.name}<span className="muted">{items.length}</span></h3>
@@ -111,7 +121,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
                 {item.type==='link' && <label className="wide">URL<input type="url" name="url" defaultValue={item.url} required maxLength={2048}/></label>}
                 <PublicationControls key={String(!!item.published_at)} published={!!item.published_at}/>
               </ActionForm>
-              {item.type!=='link' && <UploadPanel clientId={id} itemId={item.id} folderId={item.folder_id || ''}/>}
+              {item.type!=='link' && <UploadPanel projectId={data.project!.id} clientId={id} itemId={item.id} folderId={item.folder_id || ''}/>}
               <div className="inline-form">
                 <ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'up')}><button className="icon-button" disabled={index===0}><ArrowUp size={15} aria-hidden="true" /><span className="button-text">Move up</span></button></ActionForm>
                 <ActionForm className="inline-form" action={moveItem.bind(null,id,item.id,'down')}><button className="icon-button" disabled={index===items.length-1}><ArrowDown size={15} aria-hidden="true" /><span className="button-text">Move down</span></button></ActionForm>
@@ -135,6 +145,7 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
       <p className="muted">Drag a row by its handle to place it before another, or use the arrow buttons.</p>
       <FolderControls clientId={id} folders={folders.map(f=>({id:f.id,name:f.name,track_id:f.track_id}))} tracks={data.tracks}/>
       <ActionForm action={createFolder.bind(null,id)} className="inline-form add-folder" success="Folder added.">
+        <input type="hidden" name="projectId" value={data.project.id} />
         <label className="sr-only" htmlFor="new-folder">New folder name</label>
         <input id="new-folder" name="name" required maxLength={120} placeholder="New folder name"/>
         <button className="button"><FolderPlus size={16} aria-hidden="true" /> Add folder</button>
@@ -148,6 +159,8 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
         </div>)}
       </details>}
     </section>
+
+    </div>}
 
     <div className="admin-zone">
       <div className="admin-zone-head">

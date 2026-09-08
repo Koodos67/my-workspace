@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth';
 import { withActor } from '@/lib/db';
 import { activeClient, textField } from '@/lib/content';
+import { activeProject } from '@/lib/projects';
 import { TRACK_STATUSES, type TrackStatus } from '@/lib/tracks';
 
 function refresh(clientId: string) {
@@ -20,10 +21,10 @@ export async function createTrack(clientId: string, form: FormData) {
   const { profile } = await requireAdmin();
   const name = textField(form, 'name', 120);
   await withActor(profile.id, async db => {
-    await activeClient(db, clientId);
-    await db.query(`INSERT INTO tracks(client_id,name,summary,deliverable,recurring,position)
-      SELECT $1,$2,$3,$4,$5,coalesce(max(position),0)+1000 FROM tracks WHERE client_id=$1`,
-      [clientId, name, textField(form, 'summary', 500, true), textField(form, 'deliverable', 120, true), form.get('recurring') === 'on']);
+    const projectId = await activeProject(db, clientId, String(form.get('projectId') || ''));
+    await db.query(`INSERT INTO tracks(client_id,name,summary,deliverable,recurring,project_id,position)
+      SELECT $1,$2,$3,$4,$5,$6,coalesce(max(position),0)+1000 FROM tracks WHERE client_id=$1 AND project_id=$6`,
+      [clientId, name, textField(form, 'summary', 500, true), textField(form, 'deliverable', 120, true), form.get('recurring') === 'on', projectId]);
   });
   refresh(clientId);
 }
@@ -70,7 +71,7 @@ export async function moveTrack(clientId: string, trackId: string, direction: 'u
   if (direction !== 'up' && direction !== 'down') throw new Error('Invalid direction.');
   await withActor(profile.id, async db => {
     await activeClient(db, clientId);
-    const { rows } = await db.query('SELECT id,recurring FROM tracks WHERE client_id=$1 AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE', [clientId]);
+    const { rows } = await db.query('SELECT id,recurring FROM tracks WHERE client_id=$1 AND project_id=(SELECT project_id FROM tracks WHERE id=$2 AND client_id=$1) AND archived_at IS NULL ORDER BY position,created_at,id FOR UPDATE', [clientId, trackId]);
     const current = rows.find(row => row.id === trackId);
     if (!current) throw new Error('Track unavailable.');
     const group = rows.filter(row => row.recurring === current.recurring);

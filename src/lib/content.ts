@@ -18,7 +18,7 @@ export async function activeClient(db: PoolClient, clientId: string, folderId?: 
   if (!result.rowCount) throw new Error('This workspace is archived or unavailable.');
   if (folderId && !(await db.query('SELECT id FROM folders WHERE id=$1 AND client_id=$2 AND archived_at IS NULL', [folderId, clientId])).rowCount) throw new Error('Choose an active folder in this workspace.');
 }
-export type UploadTicket = { actor: string; clientId: string; folderId: string | null; itemId: string; versionId: string; pathname: string; title: string; type: 'artifact' | 'file'; mime: string; note: string; replacement: boolean; expires: number };
+export type UploadTicket = { actor: string; clientId: string; projectId: string; folderId: string | null; itemId: string; versionId: string; pathname: string; title: string; type: 'artifact' | 'file'; mime: string; note: string; replacement: boolean; expires: number };
 function signature(payload: string) { return createHmac('sha256', process.env.BETTER_AUTH_SECRET!).update(payload).digest('base64url'); }
 export function signUpload(ticket: UploadTicket) {
   const payload = Buffer.from(JSON.stringify(ticket)).toString('base64url');
