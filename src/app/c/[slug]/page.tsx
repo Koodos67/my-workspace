@@ -1,4 +1,5 @@
 ﻿import Link from 'next/link';
+import { MessageSquare } from 'lucide-react';
 import { readProjects } from '@/lib/projects';
 import { ProjectNavigation } from '@/components/project-navigation';
 import { notFound } from 'next/navigation';
@@ -24,7 +25,9 @@ export default async function ClientWorkspace({ params, searchParams }: { params
     const folders = (await db.query('SELECT id,name,track_id FROM folders WHERE client_id=$1 AND project_id=$2 AND archived_at IS NULL ORDER BY position,created_at,id',[client.id,projectId])).rows;
     const tracks = project ? await readTracks(db, client.id, false, project.id) : [];
     const approvals = project ? await readApprovals(db, client.id, project.id) : [];
-    const items = (await db.query('SELECT id,folder_id,title,description,type,url,published_at,updated_at FROM items WHERE client_id=$1 AND project_id=$2 AND archived_at IS NULL AND published_at IS NOT NULL AND published_at<=now() ORDER BY position,created_at,id',[client.id,projectId])).rows;
+    const items = (await db.query(`SELECT i.id,i.folder_id,i.title,i.description,i.type,i.url,i.published_at,i.updated_at,
+      (SELECT count(*) FROM comments cm WHERE cm.item_id=i.id AND cm.deleted_at IS NULL)::int AS comment_count
+      FROM items i WHERE i.client_id=$1 AND i.project_id=$2 AND i.archived_at IS NULL AND i.published_at IS NOT NULL AND i.published_at<=now() ORDER BY i.position,i.created_at,i.id`,[client.id,projectId])).rows;
     return {client,projects,project,folders,items,tracks,approvals};
   });
   if (!data) notFound();
@@ -39,7 +42,7 @@ export default async function ClientWorkspace({ params, searchParams }: { params
     {[{id:null,name:'Start here',track_id:null},...folders].map(folder=>{
       const content=items.filter(item=>item.folder_id===folder.id);
       if(!folder.id && !content.length)return null;
-      return <section id={folder.id ? 'folder-'+folder.id : 'workspace-root'} key={folder.id || 'root'}><div className="client-folder-heading"><h2>{folder.name}</h2>{tracks.find(track=>track.id===folder.track_id) && <span className="badge green">{tracks.find(track=>track.id===folder.track_id)!.name}</span>}</div>{content.length?<div className="cards">{content.map(item=><Link className="item-card" href={'/items/'+item.id} key={item.id}><span className="badge green">{item.type==='artifact'?'HTML artifact':item.type==='link'?'Link':'File'}</span><h2>{item.title}</h2><p>{item.description || 'Open to explore this deliverable.'}</p><div className="meta"><span>{new Date(item.updated_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</span><span>Open →</span></div></Link>)}</div>:<div className="empty"><p className="muted">Your shared work will appear here.</p></div>}</section>;
+      return <section id={folder.id ? 'folder-'+folder.id : 'workspace-root'} key={folder.id || 'root'}><div className="client-folder-heading"><h2>{folder.name}</h2>{tracks.find(track=>track.id===folder.track_id) && <span className="badge green">{tracks.find(track=>track.id===folder.track_id)!.name}</span>}</div>{content.length?<div className="cards">{content.map(item=><Link className="item-card" href={'/items/'+item.id} key={item.id}><span className="badge green">{item.type==='artifact'?'HTML artifact':item.type==='link'?'Link':'File'}</span><h2>{item.title}</h2><p>{item.description || 'Open to explore this deliverable.'}</p><div className="meta"><span>{new Date(item.updated_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</span>{item.comment_count>0 && <span className="comment-count"><MessageSquare size={13} aria-hidden="true" /> {item.comment_count}</span>}<span>Open →</span></div></Link>)}</div>:<div className="empty"><p className="muted">Your shared work will appear here.</p></div>}</section>;
     })}
     {!folders.length && !items.length && <div className="empty"><h2>A fresh beginning.</h2><p className="muted">Your shared work will appear here.</p></div>}
     </>}

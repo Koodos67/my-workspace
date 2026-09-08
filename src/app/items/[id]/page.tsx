@@ -5,6 +5,8 @@ import { withActor } from '@/lib/db';
 import { Shell } from '@/components/shell';
 import { BackLink } from '@/components/back-link';
 import { ArtifactViewer } from '@/components/artifact-viewer';
+import { CommentThread } from '@/components/comment-thread';
+import { readComments } from '@/lib/comments';
 export const dynamic='force-dynamic';
 export default async function ItemPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{version?:string}>}) {
   const {id}=await params,{version:selected}=await searchParams;
@@ -14,10 +16,12 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
     const item=(await db.query('SELECT i.*,c.name AS client_name,c.slug,f.name AS folder_name FROM items i JOIN clients c ON c.id=i.client_id LEFT JOIN folders f ON f.id=i.folder_id WHERE i.id=$1 AND i.archived_at IS NULL',[id])).rows[0];
     if(!item)return null;
     const versions=(await db.query('SELECT id,mime_type,size_bytes,version_note,created_at FROM item_versions WHERE item_id=$1 ORDER BY created_at DESC,id DESC',[id])).rows;
-    return {item,versions};
+    const comments=await readComments(db,id);
+    const canComment=(await db.query('SELECT private.can_comment_on_item($1) AS ok',[id])).rows[0].ok as boolean;
+    return {item,versions,comments,canComment};
   });
   if(!data)notFound();
-  const {item,versions}=data, version=versions.find(v=>v.id===(selected || item.current_version_id));
+  const {item,versions,comments,canComment}=data, version=versions.find(v=>v.id===(selected || item.current_version_id));
   if(selected && !version)notFound();
   return <Shell signedIn client={profile.role!=='admin'} name={item.client_name} initials={(profile.full_name || profile.email).slice(0,2).toUpperCase()}>
     <BackLink href={profile.role==='admin' ? '/admin/clients/'+item.client_id+'?project='+item.project_id : '/c/'+item.slug+'?project='+item.project_id+(item.folder_id?'#folder-'+item.folder_id:'')}>{profile.role==='admin' ? 'Back to manage '+item.client_name : 'Back to '+item.client_name}</BackLink>
@@ -29,5 +33,7 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
       {item.type==='artifact'?<ArtifactViewer itemId={id} versionId={version.id} title={item.title}/>:<div className="empty"><h2>Your file is ready.</h2><p className="muted">Download the original to view it on your device.</p></div>}
       {versions.length>1 && <details className="form-panel"><summary>Version history ({versions.length})</summary>{versions.map((v,index)=><div className="member-row" key={v.id}><div><Link href={`/items/${id}?version=${v.id}`}>Version {versions.length-index}{v.id===item.current_version_id?' · Current':''}</Link><p className="muted">{v.version_note || 'No version note'} · {new Date(v.created_at).toLocaleDateString('en-GB',{timeZone:'Europe/London'})}</p></div><a href={`/api/items/${id}/file?version=${v.id}&download=1`}>Download ↓</a></div>)}</details>}
     </>:<div className="empty">No file has been uploaded yet.</div>}
+    <CommentThread itemId={id} comments={comments} viewerId={profile.id} isAdmin={profile.role==='admin'} canComment={canComment}
+      reason={!item.published_at ? 'Comments open once this item is shared with the client.' : 'Comments are closed on this item.'}/>
   </Shell>;
 }

@@ -3,3 +3,5 @@ database/migrations/004_tracks.sql text eol=lf
 database/migrations/005_approvals.sql text eol=lf
 
 database/migrations/006_projects.sql text eol=lf
+
+database/migrations/007_comments.sql text eol=lf

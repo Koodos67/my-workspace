@@ -4,8 +4,8 @@ import { ProjectNavigation } from '@/components/project-navigation';
 import { ProjectScope } from '@/components/project-scope';
 import { notFound } from 'next/navigation';
 import {
-  ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2,
-  MailPlus, RotateCcw, Settings2, ShieldAlert, SquarePen, UserMinus, UserRound, Users,
+  ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2, MailPlus,
+  MessageSquare, RotateCcw, Settings2, ShieldAlert, SquarePen, UserMinus, UserRound, Users,
 } from 'lucide-react';
 import { requireAdmin } from '@/lib/auth';
 import { withActor } from '@/lib/db';
@@ -46,7 +46,10 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
     const items = (await db.query(
       `SELECT i.*, i.published_at<=now() AS is_published_now,
         (SELECT count(*) FROM item_versions v WHERE v.item_id=i.id) AS versions,
-        (SELECT v.mime_type FROM item_versions v WHERE v.id=i.current_version_id) AS mime
+        (SELECT v.mime_type FROM item_versions v WHERE v.id=i.current_version_id) AS mime,
+        (SELECT count(*) FROM comments cm WHERE cm.item_id=i.id AND cm.deleted_at IS NULL)::int AS comment_count,
+        (SELECT max(cm.created_at) FROM comments cm WHERE cm.item_id=i.id AND cm.deleted_at IS NULL
+          AND cm.author_role='client') AS last_client_comment
        FROM items i WHERE client_id=$1 AND project_id=$2 ORDER BY position,created_at,id`,[id,projectId])).rows;
     return {client,projects,project,folders,members,items,tracks,approvals};
   });
@@ -114,6 +117,9 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
               <span className="content-title">{item.title}</span>
               <span className={'badge'+(item.published_at?' green':'')}>{item.published_at?'Published · visible to client':'Draft · hidden from client'}</span>
               <span className="content-edit-cue"><SquarePen size={14} aria-hidden="true" /> Edit &amp; sharing <span aria-hidden="true">⌄</span></span>
+              {item.comment_count>0 && <Link className={'comment-flag'+(item.last_client_comment?' is-client':'')} href={'/items/'+item.id+'#comments'}>
+                <MessageSquare size={13} aria-hidden="true" /> {item.comment_count}{item.last_client_comment ? ' · client replied' : ''}
+              </Link>}
               <small className="muted">{itemTypeLabel(item.type,item.mime)} · {item.versions} version{Number(item.versions)===1?'':'s'}</small>
             </summary>
             <div className="item-controls">
