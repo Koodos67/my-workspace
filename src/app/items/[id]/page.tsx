@@ -20,7 +20,7 @@ export default async function ItemPage({params,searchParams}:{params:Promise<{id
   const {item,versions}=data, version=versions.find(v=>v.id===(selected || item.current_version_id));
   if(selected && !version)notFound();
   return <Shell signedIn client={profile.role!=='admin'} name={item.client_name} initials={(profile.full_name || profile.email).slice(0,2).toUpperCase()}>
-    <BackLink href={profile.role==='admin' ? '/admin/clients/'+item.client_id : '/c/'+item.slug+(item.folder_id?'#folder-'+item.folder_id:'')}>{profile.role==='admin' ? 'Back to manage '+item.client_name : 'Back to '+item.client_name}</BackLink>
+    <BackLink href={profile.role==='admin' ? '/admin/clients/'+item.client_id+'?project='+item.project_id : '/c/'+item.slug+'?project='+item.project_id+(item.folder_id?'#folder-'+item.folder_id:'')}>{profile.role==='admin' ? 'Back to manage '+item.client_name : 'Back to '+item.client_name}</BackLink>
     {item.folder_name && <p className="eyebrow">{item.folder_name}</p>}
     <div className="heading"><div><h1>{item.title}</h1><p className="muted">{item.description}</p>{!item.published_at && <span className="badge">Draft — only visible to admin</span>}</div></div>
     {item.type==='link'?<a className="button" href={item.url} target="_blank" rel="noopener noreferrer">Open link ↗</a>:version?<>

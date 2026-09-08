@@ -102,15 +102,15 @@ test('work tracks report progress, preserve filing and support the cross-client 
   await page.getByRole('link',{name:/Rooted Education QA 2/}).click();
   await expect(page).toHaveURL(new RegExp('client='+slug));
   await expect(page.locator('.board-card')).toHaveCount(1);
-  await page.getByLabel('Status for Rooted Education QA · Research').selectOption('done');
+  await page.getByLabel('Status for Rooted Education QA · Main project · Research').selectOption('done');
   await expect(page.locator('.board-card')).toHaveCount(0);
   expect((await pool.query('SELECT status FROM tracks WHERE id=$1',[tracks[1].id])).rows[0].status).toBe('done');
   await page.getByRole('link',{name:'Show all stages',exact:true}).click();
   await expect(page.locator('.board-column')).toHaveCount(5);
   await expect(page.locator('.board-card')).toHaveCount(6);
-  const drag = page.getByRole('button',{name:'Drag Rooted Education QA Research to change status',exact:true});
+  const drag = page.getByRole('button',{name:'Drag Rooted Education QA Main project Research to change status',exact:true});
   await drag.dragTo(page.getByRole('region',{name:'In progress',exact:true}));
-  await expect(page.getByLabel('Status for Rooted Education QA · Research')).toHaveValue('in_progress');
+  await expect(page.getByLabel('Status for Rooted Education QA · Main project · Research')).toHaveValue('in_progress');
   await page.getByRole('link',{name:'Show live work',exact:true}).click();
   await expect(page.locator('.board-column')).toHaveCount(3);
   await page.screenshot({path:'.shipstudio/tracks-board-desktop.png',fullPage:true});

@@ -22,7 +22,7 @@ async function withDeadline<T>(work: Promise<T>, message: string, abort?: AbortC
   }
 }
 
-export function UploadPanel({ clientId, folderId = '', itemId, folders = [] }: { clientId: string; folderId?: string; itemId?: string; folders?: { id: string; name: string }[] }) {
+export function UploadPanel({ clientId, projectId, folderId = '', itemId, folders = [] }: { clientId: string; projectId: string; folderId?: string; itemId?: string; folders?: { id: string; name: string }[] }) {
   const [busy,setBusy]=useState(false), [message,setMessage]=useState(''), [error,setError]=useState(false);
   const [selectedFolder,setSelectedFolder]=useState(folderId), [note,setNote]=useState('');
   const [ready,setReady]=useState(false);
@@ -46,7 +46,7 @@ export function UploadPanel({ clientId, folderId = '', itemId, folders = [] }: {
           title=document.title.trim() || title;
         }
         const form=new FormData();
-        Object.entries({filename:file.name,size:String(file.size),title:title.slice(0,120),mime:file.type || 'application/octet-stream',folderId:selectedFolder,itemId:itemId || '',note}).forEach(([key,value])=>form.set(key,value));
+        Object.entries({projectId,filename:file.name,size:String(file.size),title:title.slice(0,120),mime:file.type || 'application/octet-stream',folderId:selectedFolder,itemId:itemId || '',note}).forEach(([key,value])=>form.set(key,value));
         setMessage(`Preparing ${file.name}…`);
         const prepared = await withDeadline(
           prepareUpload(clientId, form),
@@ -86,7 +86,7 @@ export function UploadPanel({ clientId, folderId = '', itemId, folders = [] }: {
     {!itemId && folders.length>0 && <label className="upload-target">
       <span><FolderInput size={15} strokeWidth={1.75} aria-hidden="true" /> Upload into</span>
       <select disabled={disabled} value={selectedFolder} onChange={event=>setSelectedFolder(event.target.value)}>
-        <option value="">Workspace root</option>
+        <option value="">Project root</option>
         {folders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}
       </select>
     </label>}

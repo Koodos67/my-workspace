@@ -3,7 +3,7 @@
 **Owner:** Mark Thurman, KOODOS
 **Status:** Draft for build
 **Build target:** ShipStudio + Claude Opus 5, deployed to Vercel
-**Version:** 1.0
+**Version:** 1.1 (projects added 8 September 2026)
 
 ---
 
@@ -54,15 +54,43 @@ A client company may have several client users. In practice most will have one. 
 ## 4. Information architecture
 
 ```
-Client (company)
-└── Folder            e.g. "Proposals", "SEO Research", "Content Gap Analysis"
-    └── Item          an artifact, a link, or a file
+Client (company; membership and branding)
+└── Project
+    ├── Work tracks (including Plan / Launch approval checkpoints)
+    ├── Folder       optionally assigned to a work track in this project
+    │   └── Item     an artifact, a link, or a file
+    └── Item         project-root content outside any folder
 ```
 
 - Folders are **one level deep** in v1. The schema carries a nullable `parent_id` so nesting can be enabled later without migration, but the UI and validation enforce depth 1.
-- Items may sit directly at the client root, outside any folder. Useful for a "Start here" welcome artifact.
+- Items may sit directly at the project root, outside any folder. Useful for a "Start here" welcome artifact.
 - Folders and items are manually ordered by drag, not sorted by date. Ordering is editorial — it is how KOODOS presents the work.
 - Everything is archived, never hard-deleted, in v1.
+
+### Projects - added 8 September 2026
+
+- One client can have several projects, each with independent tracks, folders, root
+  content and approvals. A folder, item or approval cannot reference a different
+  project's track, folder or deliverable, even within the same client.
+- Client members inherit access to all active projects for their client. Membership
+  and branding stay at client level; separate project membership is outside this cut.
+- Admins create, rename, describe, archive and restore projects from the client page.
+  Each project starts with Discovery, Research, Plan, Build, Review, Launch and Operate.
+- The admin and client workspace select a project using a bookmarkable `?project=<id>`.
+  With no selection, the first active project is shown. The studio board identifies
+  both client and project and links to the correct project and track.
+- Migration 006 puts existing records into one **Main project** per client without
+  changing existing content, item addresses, version history, timestamps or approvals.
+  The project can be renamed. New clients also start with one Main project.
+- Archiving hides that project, its contents and its approvals from client members.
+  It blocks content changes and new approval requests/responses until restored.
+  Restoring retains previous publication and approval state. It does not delete files.
+- `projects` stores `id`, `client_id`, `name`, `description`, `archived_at`, `created_at`.
+  Tracks, folders, items and approval requests carry non-null `project_id` and composite
+  foreign keys enforcing client/project ownership. Item versions inherit through items.
+  Moving existing content between projects is outside this version.
+
+The worked example below now belongs inside a project under Rooted Education.
 
 **Worked example — Rooted Education**
 
