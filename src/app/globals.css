@@ -443,3 +443,61 @@ a.approval-source:hover{background:#e2eee7;border-color:var(--green)}
  .track-overview{padding:14px}
  .approval-attention{padding:12px 14px}
 }
+
+/* ============================================================================
+   Comments: a conversation on one deliverable. KOODOS and the client are told
+   apart by tint, alignment and a role label, so a thread can be scanned for who
+   said what without reading it. Same paper and olive palette as everything else.
+   ============================================================================ */
+.comment-thread{margin-top:32px}
+.comment-thread>.section-top{margin-top:0}
+.comment-empty{font-size:13px;margin:0 0 22px;padding:22px;border:1px dashed #cbd3c1;border-radius:9px;background:#fbfcf8;text-align:center}
+.comment-list{list-style:none;margin:0 0 24px;padding:0;display:grid;gap:14px}
+.comment{display:grid;grid-template-columns:auto minmax(0,1fr);gap:13px;align-items:start}
+.comment-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#e4eada;color:#3d5334;font-size:12px;font-weight:700;letter-spacing:.5px}
+.comment[data-role=admin] .comment-avatar{background:var(--green);color:#fff}
+.comment-body{min-width:0;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow-wrap:anywhere}
+.comment[data-role=admin] .comment-body{background:#f2f6ec;border-color:#d5e0cb}
+.comment[data-removed] .comment-body{background:#fafbf8;border-style:dashed}
+.comment-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 10px;margin:0 0 9px;font-size:11px;color:var(--muted)}
+.comment-meta strong{font-size:13px;color:var(--ink);font-weight:600}
+.comment-role{padding:3px 8px;border-radius:4px;background:#eceee8;color:#5d6659;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.comment[data-role=admin] .comment-role{background:#dfe9d9;color:#31502f}
+.comment-edited{font-style:italic}
+.comment-text{margin:0;font-size:14px;line-height:1.7;white-space:pre-wrap}
+.comment-removed{margin:0;font-size:12px;color:var(--muted);font-style:italic}
+.comment-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.comment-actions .icon-button{padding:6px 9px;font-size:12px}
+.comment-edit>summary{font-size:12px;font-weight:600;color:var(--green)}
+.comment-edit-form{display:grid;gap:9px;margin-top:12px}
+.comment-edit-form label{font-size:12px;font-weight:600}
+.comment-edit-form .button{justify-self:start}
+
+.comment-composer{padding:18px;border:1px solid #dce4d3;border-radius:10px;background:#f7f9f3}
+.comment-composer fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:9px}
+.comment-composer label{font-size:13px;font-weight:600}
+.comment-composer textarea{background:#fff;min-height:84px}
+.comment-composer-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:4px}
+.comment-composer-foot .muted{font-size:12px}
+.comment-composer .form-error{margin:10px 0 0}
+.comment-closed{font-size:13px;margin:0;padding:16px;border:1px dashed #cbd3c1;border-radius:9px;background:#fbfcf8}
+
+/* Counts: the client card shows there is a conversation; the admin row says whether the
+   client is the one waiting on a reply, which is the only version of that fact that matters. */
+.comment-count{display:inline-flex;align-items:center;gap:5px}
+.comment-count svg{display:block;vertical-align:0}
+.comment-flag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;background:#eceee8;color:#5d6659;font-size:11px;font-weight:600;white-space:nowrap}
+.comment-flag svg{display:block;vertical-align:0}
+.comment-flag:hover{background:#e2e6dd}
+.comment-flag.is-client{background:#f6e7c8;color:#7a5615}
+.comment-flag.is-client:hover{background:#f0dcb4}
+
+@media(max-width:700px){
+ .comment-thread{margin-top:24px}
+ .comment{gap:10px}
+ .comment-avatar{width:30px;height:30px;font-size:11px}
+ .comment-body{padding:12px 13px}
+ .comment-composer{padding:14px}
+ .comment-composer-foot .button{width:100%}
+ .comment-composer-foot{flex-direction:column;align-items:stretch}
+}

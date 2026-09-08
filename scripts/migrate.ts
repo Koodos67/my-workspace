@@ -1,7 +1,19 @@
 import { loadEnvConfig } from '@next/env';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-loadEnvConfig(process.cwd());
+
+// loadEnvConfig defaults to production, so this script used to apply migrations to the
+// production database from a developer's machine with nothing said about it. Development is
+// now the default and production must be asked for by name, the way every release here is.
+const toProduction = process.argv.includes('--production');
+loadEnvConfig(process.cwd(), !toProduction);
+if (!process.env.DATABASE_URL) throw new Error('No DATABASE_URL for the chosen environment.');
+const host = new URL(process.env.DATABASE_URL).hostname;
+console.log(`Target: ${toProduction ? 'PRODUCTION' : 'development'} — ${host}`);
+if (toProduction && !process.argv.includes('--yes')) {
+  throw new Error('Refusing to migrate production without --yes. Rehearse first, then re-run with --production --yes.');
+}
+
 async function main() {
   const { getPool } = await import('../src/lib/db');
   const pool = getPool();

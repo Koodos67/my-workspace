@@ -4,6 +4,86 @@ Last updated: 8 September 2026. Read this file before continuing. It is the sing
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
 
+## Client comments — Claude Opus 5, 8 September 2026
+
+The user chose this as the next feature. Outside the two approval checkpoints a client had no way
+to say anything at all, and the `comments` table had existed since migration 002 with a read
+policy and no way to write to it. This opens it.
+
+### Working practice the user set on 8 September
+
+The user works **primarily against production**, migrations included, and asked me to do the same:
+magic-link sign-in only returns to production, the ShipStudio preview cannot hold an authenticated
+session, and the development database holds no clients. No clients have access to production yet.
+He will move to stricter rehearse-then-release discipline before clients are in the mix. Until
+then, do not gate ordinary work behind development-only rehearsal — but still say plainly when
+something touches production and still run the suites first.
+
+### `npm run db:migrate` used to target production silently
+
+Found while applying this migration and worth knowing: `scripts/migrate.ts` called
+`loadEnvConfig(process.cwd())`, which **defaults to production**. Every test script in this repo
+passes the explicit development flag and refuses a production host; the migrate script did not, so
+`npm run db:migrate` on a developer's machine applied migrations to production with nothing said
+about it — including for the README's documented "run it against an empty dedicated Neon database"
+setup step. It now defaults to development, prints its target host either way, and requires
+`--production --yes` to touch production. Nothing automated depended on the old default.
+
+### Schema — migration 007
+
+- The runtime role keeps **SELECT only** on `comments`; `private.post_comment`,
+  `private.edit_comment` and `private.delete_comment` are security-definer with empty
+  `search_path` and take the author from `private.actor_id()`. A submitted profile id is never
+  trusted. This is the approvals pattern, unchanged.
+- `private.can_comment_on_item` gates writing: the item must be published, unarchived, in a live
+  folder, in an unarchived project, for an active client the actor can access. **An admin cannot
+  comment on a draft**, so an internal note can never appear to the client the moment it is
+  published.
+- **`author_name` and `author_role` are snapshotted onto each comment.** This is not redundancy:
+  `profiles_read` lets a client member read only their own profile, so joining for an author name
+  would leave every other participant anonymous to them. Approvals snapshot the responder for the
+  same reason. A later rename does not rewrite old comments.
+- Authors edit their own comments only — an admin can remove one but never rewrite it. Removal is
+  a soft delete; the pre-existing `comments_read` policy from 002 keeps removed rows visible to
+  admins, and the admin UI says so on the row rather than hiding the fact.
+- Migration 007 is additive. Production's `comments` table was confirmed empty before applying,
+  which is what makes the `set not null` safe. LF line endings pinned in `.gitattributes`.
+
+### Interface
+
+- `CommentThread` on `/items/[id]`: KOODOS and the client are told apart by tint, avatar and a
+  role label. Removed comments show as withdrawn to admins, not silently dropped.
+- Counts where they answer a question: the client's item card shows a conversation exists; the
+  admin content row shows **"client replied"** in amber, which is the only version of that fact
+  the studio needs, and links straight to `#comments`.
+- `CommentComposer` is the one client component here, because the box must empty after posting.
+
+### A bug worth not repeating
+
+The composer initially had no hydration guard. Before React hydrated, submitting did a **native
+GET** and the comment went into the query string and was lost, silently. The board and the
+approval response already guard with a `ready` state; the composer now does too. This cost several
+runs to find because the page looked correct and no error appeared anywhere — the tell was that
+the click produced `GET /items/…?body=…` and no POST at all.
+
+### Verification
+
+Typecheck, production build, `test:rls`, `test:projects` and all five browser suites pass,
+including the new `tests/comments.spec.ts` and the 390px overflow assertion. The new suite covers
+posting, the box emptying, a second member seeing the author's name without profile access, a
+stranger seeing nothing, the admin flag and reply, author-only editing with `edited_at`, removal
+being a withdrawal rather than an erasure, project archive closing the thread, and revocation
+removing it.
+
+### Not done, deliberately
+
+- **Acknowledgements are still schema-only.** That table now overlaps heavily with approvals,
+  which are richer and already shipped. Worth deciding whether to build or drop it rather than
+  leaving it as a third half-feature.
+- No notifications of any kind, matching approvals. There is no unread state — an admin sees that
+  a client replied, not which comments are new. A read marker would need a new table.
+- Comments are per item. There is no project-level or track-level discussion.
+
 ## Project selector fixes — Claude Opus 5, 8 September 2026
 
 Two admin problems the user hit on the shipped projects feature. Presentation and a client-side
