@@ -35,17 +35,16 @@ the style changes are preserved. This section supersedes earlier client-only own
   through RLS, and blocks content changes and approval requests/responses. Restore
   restores previous publication/approval state; records and Blob files are retained.
   Client archive/revocation still remove access across every project.
-- Migration 006 is applied to the separate DEVELOPMENT database only. Production
-  migration and release are not yet done. Apply the migration before deploying code.
-  Its LF line endings are pinned in `.gitattributes` for checksum consistency.
-- Production rehearsal passed in a rolled-back transaction: two clients become two
-  projects and all existing records remain unchanged. Automatic approval review rejected
-  the persistent production migration because this feature request did not explicitly
-  authorise production schema/data mutation. Do not apply it or merge/deploy the feature
-  until the user approves that production step. Automatic review also rejected pushing
-  the feature branch to the existing GitHub origin without explicit authorisation to
-  upload the source. The feature remains on a local branch; the PR description is
-  prepared in `.shipstudio/PR-PROJECTS.md`. No remote PR or deployment was created.
+- Migration 006 was rehearsed against development and production, then applied to both
+  after the user authorised release. Production had two clients; it now has two Main
+  projects and all existing records were unchanged. Its LF line endings are pinned in
+  `.gitattributes` for checksum consistency.
+- PR #11 was pushed and merged to `main` as `759bf5553e62cdb658c4bdd9e5c81995abce8799`.
+  The production deployment is Ready at `dpl_45Ua7UfhJy3sE7uVw75nQiv8anqN`, with
+  `portal.getkoodos.com` and the existing Vercel aliases pointing to it.
+- The production migration and deployment were explicitly authorised by the user on
+  8 September 2026. Future schema migrations still require the same rehearsal/release
+  discipline. The local `.shipstudio/PR-PROJECTS.md` remains a release summary.
 - `scripts/migrate-projects.ts` is a development-only runner: default rehearses in a
   rolled-back transaction, `--apply` applies. The rehearsal was run before application
   with legacy folders, a versioned artifact and an approved launch request; all existing
