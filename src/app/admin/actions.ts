@@ -8,7 +8,7 @@ import { getAuth } from '@/lib/auth-config';
 import { headers } from 'next/headers';
 import { activeClient, textField } from '@/lib/content';
 import { activeProject } from '@/lib/projects';
-import { seedTracks } from '@/lib/track-data';
+import { seedProject } from '@/lib/project-setup';
 
 export async function updateClient(id: string, form: FormData) {
   const { profile } = await requireAdmin();
@@ -68,7 +68,7 @@ export async function createClient(form: FormData) {
   try {
     id = await withActor(profile.id, async db => {
       const clientId = (await db.query('INSERT INTO clients(name, slug) VALUES ($1,$2) RETURNING id', [name, slug])).rows[0].id;
-      await seedTracks(db, clientId);
+      await seedProject(db, clientId);
       return clientId;
     });
   } catch (error) {

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth';
 import { withActor } from '@/lib/db';
 import { activeClient, textField } from '@/lib/content';
-import { seedTracks } from '@/lib/track-data';
+import { seedProject, seedStandardFolders } from '@/lib/project-setup';
 
 function refresh(clientId: string) {
   revalidatePath('/admin/clients/' + clientId);
@@ -20,7 +20,7 @@ export async function createProject(clientId: string, form: FormData) {
     await activeClient(db, clientId);
     const project = (await db.query('INSERT INTO projects(client_id,name,description) VALUES($1,$2,$3) RETURNING id',
       [clientId, textField(form, 'name'), textField(form, 'description', 500, true)])).rows[0];
-    await seedTracks(db, clientId, project.id);
+    await seedProject(db, clientId, project.id);
     return project.id;
   });
   refresh(clientId);
@@ -47,4 +47,23 @@ export async function archiveProject(clientId: string, projectId: string, restor
   });
   refresh(clientId);
   redirect('/admin/clients/' + clientId + (restore ? '?project=' + projectId : ''));
+}
+
+/**
+ * Projects created before folder seeding, or emptied by hand, can adopt the standard set.
+ * Offered only when the project has no folders at all, so it can never duplicate one, and it
+ * mirrors the project's actual stages rather than the shipped defaults in case they were renamed.
+ */
+export async function addStandardFolders(clientId: string, projectId: string) {
+  const { profile } = await requireAdmin();
+  await withActor(profile.id, async db => {
+    await activeClient(db, clientId);
+    const existing = await db.query('SELECT 1 FROM folders WHERE client_id=$1 AND project_id=$2 LIMIT 1', [clientId, projectId]);
+    if (existing.rowCount) throw new Error('This project already has folders.');
+    const tracks = (await db.query(
+      'SELECT id,name,recurring FROM tracks WHERE client_id=$1 AND project_id=$2 AND archived_at IS NULL ORDER BY position,created_at,id',
+      [clientId, projectId])).rows;
+    await seedStandardFolders(db, clientId, projectId, tracks);
+  });
+  refresh(clientId);
 }

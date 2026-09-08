@@ -4,6 +4,34 @@ Last updated: 8 September 2026. Read this file before continuing. It is the sing
 running record for this project; the earlier standalone `review.md` has been folded
 in here and deleted.
 
+## Standard folders per project — Claude Opus 5, 8 September 2026
+
+The user decided every project should arrive with folders named after the delivery stages, plus
+one for the commercial paperwork, instead of an empty filing area.
+
+- `seedProject` (`src/lib/project-setup.ts`) now seeds both tracks and folders, and is called from
+  `createClient` and `createProject`. `seedTracks` returns the rows it inserted, because each
+  folder is **linked to its stage** via `folders.track_id` — so the client progress spine links
+  from a stage straight to its folder with no manual wiring.
+- Folders: Discovery, Research, Plan, Build, Review, Launch, then `Proposals & commercials`
+  (`EXTRA_FOLDERS`). **Operate is excluded on purpose** — ongoing service is not a filing stage.
+  They are ordinary folders once created: rename, reorder, archive or reassign freely.
+- Two consequences that had to be handled, not just the seeding itself:
+  - **The client view now hides empty folders.** Seeding means most folders are empty most of the
+    time, and the client page previously rendered a section per folder — a brand-new workspace
+    would have shown seven "your shared work will appear here" blocks. Filing structure is the
+    studio's business; the client sees only folders holding published work.
+  - **Two suites encoded "a new client has no folders."** `tracks.spec` took `rows[0]` from an
+    unordered folder query, which silently became a seeded folder; it now names the folder the
+    test made. `content-delivery.spec` clicked "Archive" unscoped inside `#folders`, which became
+    a strict-mode violation with eight rows; it now scopes to the Reports row. Both are faithful
+    to what those tests were checking.
+- Existing projects are **not** backfilled. Where a project has no folders at all, the Folders
+  panel offers `addStandardFolders`, which refuses if any folder exists so it cannot duplicate,
+  and mirrors the project's current stage names rather than the shipped defaults.
+
+Verified: typecheck, production build, `test:rls`, `test:projects` and all five browser suites.
+
 ## Client comments — Claude Opus 5, 8 September 2026
 
 The user chose this as the next feature. Outside the two approval checkpoints a client had no way

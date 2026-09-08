@@ -3,13 +3,18 @@ import type { PoolClient } from 'pg';
 import { activeProject } from './projects';
 import { DEFAULT_TRACKS, type Track } from './tracks';
 
+/** Returns the seeded tracks, because the standard folders are linked to them by id. */
 export async function seedTracks(db: PoolClient, clientId: string, projectId?: string) {
   projectId = await activeProject(db, clientId, projectId);
+  const seeded: { id: string; name: string; recurring: boolean }[] = [];
   for (const [index, track] of DEFAULT_TRACKS.entries()) {
-    await db.query('INSERT INTO tracks(client_id,name,summary,deliverable,position,recurring,approval_kind,project_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+    const { rows } = await db.query(`INSERT INTO tracks(client_id,name,summary,deliverable,position,recurring,approval_kind,project_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,name,recurring`,
       [clientId, track.name, track.summary, track.deliverable, (index + 1) * 1000, track.recurring,
         track.approval_kind || null, projectId]);
+    seeded.push(rows[0]);
   }
+  return seeded;
 }
 
 // Call only inside withActor. Explicit publication filtering also makes admin previews

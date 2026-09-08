@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { readProjects } from '@/lib/projects';
 import { ProjectNavigation } from '@/components/project-navigation';
 import { ProjectScope } from '@/components/project-scope';
+import { addStandardFolders } from '../../project-actions';
+import { EXTRA_FOLDERS } from '@/lib/project-setup';
 import { notFound } from 'next/navigation';
 import {
   ArchiveIcon, ArrowDown, ArrowUp, ArrowUpRight, Folder, FolderPlus, Link2, MailPlus,
@@ -152,7 +154,11 @@ export default async function ClientAdmin({ params, searchParams }: { params: Pr
 
     <section id="folders" className="form-panel">
       <h2>Folders <ProjectScope name={data.project.name} /></h2>
-      <p className="muted">Drag a row by its handle to place it before another, or use the arrow buttons.</p>
+      <p className="muted">New projects start with a folder per delivery stage. Rename, reorder or archive them freely — your client only sees folders that hold something.</p>
+      {!data.folders.length && <ActionForm className="inline-form standard-folders" action={addStandardFolders.bind(null,id,data.project.id)} success="Standard folders added.">
+        <button className="button secondary"><FolderPlus size={16} aria-hidden="true" /> Add the standard folders</button>
+        <span className="muted">One per delivery stage, plus {EXTRA_FOLDERS.join(' and ')}.</span>
+      </ActionForm>}
       <FolderControls clientId={id} folders={folders.map(f=>({id:f.id,name:f.name,track_id:f.track_id}))} tracks={data.tracks}/>
       <ActionForm action={createFolder.bind(null,id)} className="inline-form add-folder" success="Folder added.">
         <input type="hidden" name="projectId" value={data.project.id} />
